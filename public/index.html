@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>アルセチカさんの配信置き場</title>
+<meta name="description" content="アルセチカさんの配信アーカイブを有志がまとめている非公式サイトです。">
+<!-- 限定公開の配信をまとめているため、検索エンジンには載せない設定にしています。
+     検索から見つかるようにしたい場合は、この行と public/_headers の X-Robots-Tag を消してください。 -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#c8dee5">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ==========================================================================
+     マスターデータ
+     更新するのは基本この SITE データの中だけで済みます。
+     ========================================================================== -->
+<script>
+const SITE = {
+
+  /* --- サイト情報 ------------------------------------------------------ */
+  title: "アルセチカさんの配信置き場",
+  subtitle: "有志によるアーカイブまとめ（非公式）",
+  owner: "アルセチカ",
+
+  /* YouTubeチャンネル。「配信ページを見に行く」ボタンのリンク先になります */
+  channelUrl: "https://www.youtube.com/@aruseee",
+
+  /* --- ソーシャルリンク（ヘッダーに並びます。順番＝表示順） ------------ */
+  links: [
+    { label: "YouTube",   url: "https://www.youtube.com/@aruseee" },
+    { label: "X",         url: "https://x.com/aruseee" },
+    { label: "pixiv",     url: "https://www.pixiv.net/users/69233208" },
+    { label: "piapro",    url: "https://piapro.jp/konagona" },
+    { label: "ブログ",     url: "https://aruseee.wordpress.com/" },
+    { label: "BOOTH",     url: "https://aruseee.booth.pm/" },
+    { label: "SUZURI",    url: "https://suzuri.jp/aruseee" }
+  ],
+
+  /* --- いま配信中のとき ------------------------------------------------
+     配信が始まったら下の live を { ... } の形に書き換えてください。
+     配信が終わったら live: null, に戻すだけで「消灯」表示に戻ります。
+
+     例）
+     live: {
+       title: "今日のチカム",
+       url: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
+       note: "23時ごろまで"        // 任意。不要なら消してOK
+     },
+     -------------------------------------------------------------------- */
+  live: null,
+
+  /* --- 過去の配信 ------------------------------------------------------
+     上にあるものほど新しい、という並びです。
+
+     ▼ 手で書く場合
+       url だけ必須。YouTubeのURLをそのまま貼れば動きます
+       （watch?v= / youtu.be / live/ のどれでも可）。
+
+       title … 配信タイトル。省略すると動画IDが表示されます
+       date  … 任意。"2026-08-15" のように書くとカードに日付が出ます
+       note  … 任意。ひとことメモ
+       thumb … 任意。YouTubeからサムネイルを読めない場合の逃げ道。
+               "img/0GO5HLIWvnQ.jpg" のように自前の画像パスを書くと
+               そちらを優先して表示します
+
+     ▼ 自動生成する場合
+       同梱の update-archives.ps1 を使うと、urls.txt にURLを1行足すだけで
+       下の ARCHIVES:BEGIN 〜 ARCHIVES:END の間が丸ごと書き換わります。
+       マーカーのコメント行は消さないでください。
+     -------------------------------------------------------------------- */
+  archives: [
+    /* ARCHIVES:BEGIN */
+    { title: "ぼかぴと全員釣る",
+      url: "https://www.youtube.com/watch?v=qKUHVsWfo6o" },
+
+    { title: "やっぱりチカムは夜曜日",
+      url: "https://www.youtube.com/watch?v=l0Z3cCSntcQ" },
+
+    { title: "いかそうめんて二面性あるのすごい",
+      url: "https://www.youtube.com/watch?v=UZdteO4Uc18" },
+
+    { title: "ドライブライブ",
+      url: "https://www.youtube.com/watch?v=Y4VYo0WzN5Y" },
+
+    { title: "てごまごま",
+      url: "https://www.youtube.com/watch?v=37N7shkJTcU" },
+
+    { title: "12時間ぶっつづけ配信 の後日譚【2026年夏休み企画】",
+      url: "https://www.youtube.com/watch?v=hS-aGz2Rp6Q" },
+
+    { title: "12時間ぶっつづけ配信 【2026年夏休み企画】",
+      url: "https://www.youtube.com/watch?v=tlAMSvDzFcM" },
+
+    { title: "配信準備部",
+      url: "https://www.youtube.com/watch?v=xl0WsgLIYa8" },
+
+    { title: "【⚡201】つわものTonbiとじゃくしょうチカムと遊んでくれるみんなたち",
+      url: "https://www.youtube.com/watch?v=GALnv_izgCY" },
+
+    { title: "【⚡200】どよあさの程ママ",
+      url: "https://www.youtube.com/watch?v=m0pgoXd4LdI" },
+
+    { title: "【⚡199】チカムだより",
+      url: "https://www.youtube.com/watch?v=4nkbK3zAC6k" },
+
+    { title: "【⚡198】あたらしい画面を夜のみんなにも見せたい",
+      url: "https://www.youtube.com/watch?v=OjAnVy6c2iY" },
+
+    { title: "【⚡196】日曜朝みたい風味。さわやかになって新登場！",
+      url: "https://www.youtube.com/watch?v=m1X89oB4XpY" },
+
+    { title: "【⚡194】有言実行部員",
+      url: "https://www.youtube.com/watch?v=0GO5HLIWvnQ" }
+    /* ARCHIVES:END */
+  ]
+};
+</script>
+
+<style>
+/* ---------- トークン ---------------------------------------------------
+   配色はアルセチカさんの個人ブログ（aruseee.wordpress.com）の
+   テーマカラー #c8dee5 を基準に、同じ色相(194.5°)で明度を振っています。
+   ---------------------------------------------------------------------- */
+:root{
+  --sky:        #c8dee5;   /* ブログのテーマカラーそのもの */
+  --sky-soft:   #daeaef;
+  --sky-mid:    #89b3c0;
+  --sky-deep:   #517c8a;
+  --paper:      #f5f9fb;
+  --panel:      #ffffff;
+  --ink:        #203137;
+  --ink-soft:   #586d74;
+  --lamp:       #b8402f;   /* 配信中のときだけ使う色 */
+
+  --radius:     14px;
+  --gap:        clamp(14px, 2.2vw, 22px);
+  --shell:      1120px;
+
+  --display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --body:    "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono:    "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  margin:0;
+  font-family:var(--body);
+  font-weight:400;
+  line-height:1.75;
+  color:var(--ink);
+  background:var(--paper);
+  background-image:
+    radial-gradient(circle at 12% -6%, #e7f2f6 0%, rgba(231,242,246,0) 46%),
+    radial-gradient(circle at 92% 2%, #eef6f8 0%, rgba(238,246,248,0) 38%);
+  background-repeat:no-repeat;
+}
+
+a{ color:inherit; }
+
+:focus-visible{
+  outline:2.5px solid var(--sky-deep);
+  outline-offset:3px;
+  border-radius:4px;
+}
+
+.shell{
+  width:min(100% - 2.4rem, var(--shell));
+  margin-inline:auto;
+}
+
+/* ---------- ヘッダー --------------------------------------------------- */
+.masthead{
+  background:var(--sky);
+  border-bottom:1px solid #b3d1da;
+}
+
+.masthead__inner{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px 26px;
+  padding-block:22px 20px;
+}
+
+.brand{ display:flex; align-items:center; gap:12px; }
+
+.brand__lamp{
+  width:13px; height:13px;
+  flex:none;
+  border-radius:50%;
+  background:#a9c6ce;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.75);
+  margin-bottom:.5em;
+}
+.brand__lamp[data-on="true"]{
+  background:var(--lamp);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.8), 0 0 0 5px rgba(184,64,47,.18);
+  animation:blink 2.4s ease-in-out infinite;
+}
+@keyframes blink{ 0%,100%{opacity:1} 50%{opacity:.42} }
+
+.brand__title{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:clamp(1.32rem, 3.6vw, 1.85rem);
+  letter-spacing:.02em;
+  line-height:1.3;
+  margin:0;
+}
+.brand__sub{
+  margin:2px 0 0;
+  font-size:.76rem;
+  letter-spacing:.09em;
+  color:#3c5a63;
+}
+
+.social{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  padding:0; margin:0 0 3px;
+  list-style:none;
+}
+.social a{
+  display:inline-block;
+  padding:5px 13px;
+  font-family:var(--mono);
+  font-size:.73rem;
+  letter-spacing:.05em;
+  text-decoration:none;
+  color:#2b444c;
+  background:rgba(255,255,255,.62);
+  border:1px solid rgba(255,255,255,.9);
+  border-radius:999px;
+  transition:background .16s ease, transform .16s ease;
+}
+.social a:hover{ background:#fff; transform:translateY(-1px); }
+
+/* ---------- セクション見出し ------------------------------------------ */
+.section{ padding-block:clamp(30px, 5vw, 46px) 0; }
+.section:last-of-type{ padding-bottom:clamp(40px, 6vw, 64px); }
+
+.section__head{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  gap:10px 16px;
+  margin-bottom:16px;
+}
+.section__title{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:1.1rem;
+  letter-spacing:.05em;
+  margin:0;
+}
+.section__count{
+  font-family:var(--mono);
+  font-size:.76rem;
+  color:var(--ink-soft);
+}
+
+/* ---------- 配信ランプ（いま配信中） ----------------------------------- */
+.lamp{
+  border-radius:var(--radius);
+  padding:clamp(18px, 3vw, 26px);
+}
+
+/* 消灯 */
+.lamp--off{
+  border:1.5px dashed #b9d2da;
+  background:rgba(255,255,255,.5);
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px 20px;
+}
+.lamp__msg{ margin:0; font-size:.94rem; color:var(--ink-soft); }
+.lamp__msg strong{
+  display:block;
+  font-family:var(--display);
+  font-weight:500;
+  font-size:1.06rem;
+  color:var(--ink);
+  margin-bottom:2px;
+}
+
+/* 点灯 */
+.lamp--on{
+  border:1.5px solid var(--sky-mid);
+  background:var(--panel);
+  box-shadow:0 12px 30px -22px rgba(32,49,55,.55);
+}
+.lamp__tag{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-family:var(--mono);
+  font-size:.72rem;
+  letter-spacing:.16em;
+  color:#fff;
+  background:var(--lamp);
+  padding:3px 11px;
+  border-radius:999px;
+}
+.lamp__tag::before{
+  content:"";
+  width:7px; height:7px; border-radius:50%;
+  background:#fff;
+  animation:blink 2.4s ease-in-out infinite;
+}
+.lamp__title{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:clamp(1.05rem, 2.6vw, 1.32rem);
+  line-height:1.5;
+  margin:12px 0 0;
+}
+.lamp__note{ margin:4px 0 0; font-size:.86rem; color:var(--ink-soft); }
+.frame{
+  position:relative;
+  margin-top:16px;
+  aspect-ratio:16/9;
+  border-radius:9px;
+  overflow:hidden;
+  background:#0e1a1e;
+}
+.frame iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+
+.btn{
+  display:inline-block;
+  padding:9px 20px;
+  font-size:.86rem;
+  font-weight:500;
+  text-decoration:none;
+  color:#22383f;
+  background:var(--sky-soft);
+  border:1px solid var(--sky-mid);
+  border-radius:999px;
+  white-space:nowrap;
+  transition:background .16s ease;
+}
+.btn:hover{ background:var(--sky); }
+.lamp--on .btn{ margin-top:16px; }
+
+/* ---------- 検索 -------------------------------------------------------- */
+.finder{ margin-left:auto; }
+.finder input{
+  font-family:var(--body);
+  font-size:.86rem;
+  color:var(--ink);
+  padding:7px 15px;
+  width:min(230px, 46vw);
+  background:var(--panel);
+  border:1px solid #cfe1e7;
+  border-radius:999px;
+}
+.finder input::placeholder{ color:#93a8ae; }
+
+/* ---------- 過去の配信カード -------------------------------------------- */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(255px, 1fr));
+  gap:var(--gap);
+  padding:0; margin:0;
+  list-style:none;
+}
+
+.card{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  text-decoration:none;
+  background:var(--panel);
+  border:1px solid #dfeaee;
+  border-radius:var(--radius);
+  overflow:hidden;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform:translateY(-3px);
+  border-color:var(--sky-mid);
+  box-shadow:0 16px 28px -22px rgba(32,49,55,.6);
+}
+
+.card__thumb{
+  position:relative;
+  aspect-ratio:16/9;
+  background:var(--sky-soft);
+  overflow:hidden;
+}
+.card__thumb img{
+  width:100%; height:100%;
+  object-fit:cover;
+  display:block;
+}
+/* サムネイルをどうしても読み込めなかったときの代替表示 */
+.card__ph{
+  position:absolute; inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  padding:0 14px;
+  text-align:center;
+  background:var(--sky-soft);
+}
+.card__ph span{ font-size:.74rem; color:#557781; }
+.card__ph code{
+  font-family:var(--mono);
+  font-size:.68rem;
+  letter-spacing:.04em;
+  color:#7d99a1;
+}
+
+.card__body{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:13px 15px 16px;
+  flex:1;
+}
+.card__title{
+  font-family:var(--display);
+  font-weight:500;
+  font-size:.97rem;
+  line-height:1.55;
+  margin:0;
+}
+.card__meta{
+  margin-top:auto;
+  font-family:var(--mono);
+  font-size:.7rem;
+  letter-spacing:.04em;
+  color:var(--ink-soft);
+}
+
+.empty{
+  padding:36px 0;
+  text-align:center;
+  color:var(--ink-soft);
+  font-size:.92rem;
+}
+
+/* ---------- フッター ----------------------------------------------------- */
+.footer{
+  margin-top:8px;
+  border-top:1px solid #dbe8ec;
+  background:rgba(255,255,255,.55);
+}
+.footer__inner{ padding-block:26px 34px; }
+.footer p{
+  margin:0 0 8px;
+  font-size:.8rem;
+  line-height:1.9;
+  color:var(--ink-soft);
+}
+.footer p:last-child{ margin-bottom:0; }
+.footer a{ color:var(--sky-deep); }
+
+@media (max-width:560px){
+  .masthead__inner{ align-items:flex-start; }
+  .finder{ margin-left:0; width:100%; }
+  .finder input{ width:100%; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header class="masthead">
+  <div class="shell masthead__inner">
+    <div class="brand">
+      <span class="brand__lamp" id="brandLamp" aria-hidden="true"></span>
+      <div>
+        <h1 class="brand__title" id="siteTitle">アルセチカさんの配信置き場</h1>
+        <p class="brand__sub" id="siteSub">有志によるアーカイブまとめ（非公式）</p>
+      </div>
+    </div>
+    <ul class="social" id="socialLinks" aria-label="アルセチカさんのリンク"></ul>
+  </div>
+</header>
+
+<main>
+
+  <section class="section" aria-labelledby="liveHead">
+    <div class="shell">
+      <div class="section__head">
+        <h2 class="section__title" id="liveHead">いまの配信</h2>
+      </div>
+      <div id="liveSlot"></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="pastHead">
+    <div class="shell">
+      <div class="section__head">
+        <h2 class="section__title" id="pastHead">過去の配信</h2>
+        <span class="section__count" id="archiveCount" aria-live="polite"></span>
+        <div class="finder">
+          <label class="sr-only" for="finderInput" hidden>配信をさがす</label>
+          <input type="search" id="finderInput" placeholder="タイトルでさがす" autocomplete="off">
+        </div>
+      </div>
+      <ul class="grid" id="archiveGrid"></ul>
+      <p class="empty" id="emptyState" hidden>そのことばが入ったタイトルは見つかりませんでした。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="shell footer__inner">
+    <p id="rights"></p>
+    <p id="disclaimer"></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* YouTubeのURLから動画IDを取り出す（watch / youtu.be / live / embed 対応） */
+  function videoIdOf(url) {
+    if (!url) return "";
+    try {
+      var u = new URL(url);
+      if (u.searchParams.get("v")) return u.searchParams.get("v");
+      var m = u.pathname.match(/\/(?:live|embed|shorts|v)\/([\w-]{6,})/);
+      if (m) return m[1];
+      if (u.hostname.indexOf("youtu.be") !== -1) return u.pathname.slice(1).split("/")[0];
+    } catch (e) { /* URLが壊れていたら空で返す */ }
+    return "";
+  }
+
+  function fmtDate(s) {
+    if (!s) return "";
+    var d = new Date(s);
+    if (isNaN(d)) return s;
+    return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  }
+
+  var el = function (id) { return document.getElementById(id); };
+
+  /* ---- ヘッダー ---- */
+  document.title = SITE.title;
+  el("siteTitle").textContent = SITE.title;
+  el("siteSub").textContent = SITE.subtitle;
+
+  var social = el("socialLinks");
+  (SITE.links || []).forEach(function (link) {
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = link.url;
+    a.textContent = link.label;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    li.appendChild(a);
+    social.appendChild(li);
+  });
+
+  /* ---- いまの配信 ---- */
+  var live = SITE.live;
+  var liveId = live ? videoIdOf(live.url) : "";
+  el("brandLamp").setAttribute("data-on", liveId ? "true" : "false");
+
+  var slot = el("liveSlot");
+  if (liveId) {
+    var on = document.createElement("div");
+    on.className = "lamp lamp--on";
+
+    var tag = document.createElement("span");
+    tag.className = "lamp__tag";
+    tag.textContent = "配信中";
+    on.appendChild(tag);
+
+    var h = document.createElement("p");
+    h.className = "lamp__title";
+    h.textContent = live.title || "配信中";
+    on.appendChild(h);
+
+    if (live.note) {
+      var note = document.createElement("p");
+      note.className = "lamp__note";
+      note.textContent = live.note;
+      on.appendChild(note);
+    }
+
+    var frame = document.createElement("div");
+    frame.className = "frame";
+    var iframe = document.createElement("iframe");
+    iframe.src = "https://www.youtube-nocookie.com/embed/" + liveId;
+    iframe.title = live.title || "配信";
+    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture";
+    iframe.allowFullscreen = true;
+    iframe.loading = "lazy";
+    frame.appendChild(iframe);
+    on.appendChild(frame);
+
+    var go = document.createElement("a");
+    go.className = "btn";
+    go.href = live.url;
+    go.target = "_blank";
+    go.rel = "noopener noreferrer";
+    go.textContent = "YouTubeで見る";
+    on.appendChild(go);
+
+    slot.appendChild(on);
+  } else {
+    var off = document.createElement("div");
+    off.className = "lamp lamp--off";
+
+    var msg = document.createElement("p");
+    msg.className = "lamp__msg";
+    var strong = document.createElement("strong");
+    strong.textContent = "いまは配信していません";
+    msg.appendChild(strong);
+    msg.appendChild(document.createTextNode(
+      "配信が始まったらここに枠が出ます。"
+    ));
+    off.appendChild(msg);
+
+    var ch = document.createElement("a");
+    ch.className = "btn";
+    ch.href = SITE.channelUrl;
+    ch.target = "_blank";
+    ch.rel = "noopener noreferrer";
+    ch.textContent = "チャンネルを見に行く";
+    off.appendChild(ch);
+
+    slot.appendChild(off);
+  }
+
+  /* ---- 過去の配信 ---- */
+  var archives = (SITE.archives || []).filter(function (a) { return videoIdOf(a.url); });
+  var grid = el("archiveGrid");
+  var empty = el("emptyState");
+  var count = el("archiveCount");
+  var nodes = [];
+
+  archives.forEach(function (item) {
+    var id = videoIdOf(item.url);
+
+    var li = document.createElement("li");
+
+    var a = document.createElement("a");
+    a.className = "card";
+    a.href = item.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+
+    var thumb = document.createElement("div");
+    thumb.className = "card__thumb";
+
+    /* 試す順番。maxres は無い配信も多いので順に下げていく。
+       item.thumb があればそれを最優先で使う。 */
+    var sources = [];
+    if (item.thumb) sources.push(item.thumb);
+    sources.push(
+      "https://i.ytimg.com/vi/" + id + "/maxresdefault.jpg",
+      "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg",
+      "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg",
+      "https://img.youtube.com/vi/" + id + "/hqdefault.jpg"
+    );
+
+    var img = document.createElement("img");
+    img.alt = item.title || "配信のサムネイル";
+    img.loading = "lazy";
+    img.decoding = "async";
+    /* 一部の環境ではリファラ送出がブロックの原因になるため付けておく */
+    img.referrerPolicy = "no-referrer";
+
+    var step = 0;
+    /* error ハンドラは src を入れる前に登録する（取りこぼし防止） */
+    img.addEventListener("error", function () {
+      step++;
+      if (step < sources.length) {
+        img.src = sources[step];
+        return;
+      }
+      /* 全滅したときは動画IDを添えた代替表示に切り替える */
+      img.remove();
+      var ph = document.createElement("div");
+      ph.className = "card__ph";
+      var s = document.createElement("span");
+      s.textContent = "サムネイルを読み込めませんでした";
+      var c = document.createElement("code");
+      c.textContent = id;
+      ph.appendChild(s);
+      ph.appendChild(c);
+      thumb.appendChild(ph);
+    });
+    img.src = sources[0];
+
+    thumb.appendChild(img);
+    a.appendChild(thumb);
+
+    var body = document.createElement("div");
+    body.className = "card__body";
+
+    var t = document.createElement("p");
+    t.className = "card__title";
+    t.textContent = item.title || id;
+    body.appendChild(t);
+
+    var metaBits = [];
+    if (item.date) metaBits.push(fmtDate(item.date));
+    if (item.note) metaBits.push(item.note);
+    metaBits.push("限定公開");
+    var meta = document.createElement("p");
+    meta.className = "card__meta";
+    meta.textContent = metaBits.join("　/　");
+    body.appendChild(meta);
+
+    a.appendChild(body);
+    li.appendChild(a);
+    grid.appendChild(li);
+
+    nodes.push({ li: li, key: (item.title || "").toLowerCase() });
+  });
+
+  function render(shown) {
+    count.textContent = shown === archives.length
+      ? archives.length + "本"
+      : shown + " / " + archives.length + "本";
+    empty.hidden = shown !== 0;
+  }
+  render(archives.length);
+
+  el("finderInput").addEventListener("input", function () {
+    var q = this.value.trim().toLowerCase();
+    var shown = 0;
+    nodes.forEach(function (n) {
+      var hit = !q || n.key.indexOf(q) !== -1;
+      n.li.hidden = !hit;
+      if (hit) shown++;
+    });
+    render(shown);
+  });
+
+  /* ---- フッター ---- */
+  el("rights").textContent =
+    "このサイトで表示しているサムネイル画像・配信タイトル・配信内容など、" +
+    SITE.owner + "さんの配信に関する一切の権利は" + SITE.owner + "さんに帰属します。";
+  el("disclaimer").textContent =
+    "当サイトは有志が個人的にまとめている非公式のリンク集です。" +
+    SITE.owner + "さんご本人および関係者とは関係ありません。" +
+    "配信アーカイブはいずれも限定公開のため、リンク先の公開状態は" + SITE.owner +
+    "さんの設定に従います。掲載の取り下げのご連絡があれば速やかに対応します。";
+})();
+</script>
+
+</body>
+</html>
