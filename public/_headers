@@ -1,0 +1,18 @@
+# Cloudflare Pages のレスポンスヘッダー設定。
+# このファイル自体は配信されず、ヘッダーの指定としてだけ読まれます。
+
+/*
+  # 検索エンジンにインデックスさせない。
+  # robots.txt で Disallow にすると「クロールされない」だけで、
+  # 外部リンク経由で検索結果に載ることがあります。
+  # 確実に載せないためには、クロールは許可したうえでこのヘッダーで noindex を伝えます。
+  X-Robots-Tag: noindex, nofollow
+
+  # 外部へリファラを送らない（i.ytimg.com のサムネイル取得の安定にも効きます）
+  Referrer-Policy: no-referrer
+
+  # Content-Type を勝手に推測させない
+  X-Content-Type-Options: nosniff
+
+  # 他サイトにフレームで埋め込ませない
+  X-Frame-Options: SAMEORIGIN
