@@ -1,0 +1,8 @@
+# update-archives.ps1 が作る書き換え前のバックアップ
+*.bak
+
+# OSやエディタが作るもの
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/

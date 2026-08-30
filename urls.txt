@@ -1,0 +1,21 @@
+# アルセチカさんの配信URL一覧
+#   ・上にあるものほど新しい、という並びで書きます
+#   ・新しい配信は「#」の行のすぐ下（一番上）に足してください
+#   ・行頭が # の行と空行は無視されます
+#   ・URLでも動画IDだけでも構いません
+#   ・書き換えたら update-archives.ps1 を実行すると index.html に反映されます
+
+https://www.youtube.com/watch?v=qKUHVsWfo6o
+https://www.youtube.com/watch?v=l0Z3cCSntcQ
+https://www.youtube.com/watch?v=UZdteO4Uc18
+https://www.youtube.com/watch?v=Y4VYo0WzN5Y
+https://www.youtube.com/watch?v=37N7shkJTcU
+https://www.youtube.com/watch?v=hS-aGz2Rp6Q
+https://www.youtube.com/watch?v=tlAMSvDzFcM
+https://www.youtube.com/watch?v=xl0WsgLIYa8
+https://www.youtube.com/watch?v=GALnv_izgCY
+https://www.youtube.com/watch?v=m0pgoXd4LdI
+https://www.youtube.com/watch?v=4nkbK3zAC6k
+https://www.youtube.com/watch?v=OjAnVy6c2iY
+https://www.youtube.com/watch?v=m1X89oB4XpY
+https://www.youtube.com/watch?v=0GO5HLIWvnQ
