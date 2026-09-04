@@ -40,17 +40,39 @@ const SITE = {
   ],
 
   /* --- いま配信中のとき ------------------------------------------------
-     配信が始まったら下の live を { ... } の形に書き換えてください。
-     配信が終わったら live: null, に戻すだけで「消灯」表示に戻ります。
+     ここは「ページを開いた瞬間の表示」です。ふだんは触らなくて構いません。
 
-     例）
-     live: {
-       title: "今日のチカム",
-       url: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
-       note: "23時ごろまで"        // 任意。不要なら消してOK
-     },
+     ページは読み込んだあと /live-now（functions/live-now.js）に問い合わせて、
+     いま本当に配信中かどうかで表示を上書きします。つまり下の値が古くても、
+     見ている人の画面は自動で正しくなります。下の値が効くのは、その問い合わせが
+     できないとき（関数を置いていない・落ちている）だけです。
+
+     ▼ 下の値も合わせておきたい場合
+       同梱の update-live.ps1 を実行すると、いま配信中かどうかを yt-dlp が
+       調べて、下の LIVE:BEGIN 〜 LIVE:END の間を書き換えます。
+       マーカーのコメント行は消さないでください。
+
+     ▼ 手で書く場合
+       live: null, のところを次の形に書き換えます。
+
+       live: {
+         title: "今日のチカム",
+         url: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
+         note: "23時ごろまで",       // 任意。枠の下に出るひとこと
+         pinned: true                // 任意。自動確認で動かされたくないとき
+       },
+
+       pinned: true を付けると /live-now の答えを無視して、この指定を出し続けます。
+       チャンネルの /live に出てこない配信（限定公開など）を手で出すときに使います。
+       配信が終わったら live: null, に戻してください。
+
+     配信中の動画が下の archives にも入っているときは、「過去の配信」から
+     自動で取り除かれます（同じ配信が二重に出ないようにするため）。
+     配信が終われば、そのまま過去の配信として並びます。
      -------------------------------------------------------------------- */
+  /* LIVE:BEGIN */
   live: null,
+  /* LIVE:END */
 
   /* --- 過去の配信 ------------------------------------------------------
      上にあるものほど新しい、という並びです。
@@ -582,79 +604,114 @@ a{ color:inherit; }
     social.appendChild(li);
   });
 
-  /* ---- いまの配信 ---- */
-  var live = SITE.live;
-  var liveId = live ? videoIdOf(live.url) : "";
-  el("brandLamp").setAttribute("data-on", liveId ? "true" : "false");
-
+  /* ---- いまの配信 ----
+     renderLive() は何度呼んでもよい形にしてあります。最初は SITE.live の値で
+     描き、そのあと /live-now の答えが返ってきたら描き直します。 */
   var slot = el("liveSlot");
-  if (liveId) {
-    var on = document.createElement("div");
-    on.className = "lamp lamp--on";
+  var brandLamp = el("brandLamp");
+  var liveId = "";        /* いま「配信中」として出している動画ID。無ければ "" */
+  var liveNoteEl = null;  /* 枠の下のひとこと。あとから書き足せるように持っておく */
 
-    var tag = document.createElement("span");
-    tag.className = "lamp__tag";
-    tag.textContent = "配信中";
-    on.appendChild(tag);
-
-    var h = document.createElement("p");
-    h.className = "lamp__title";
-    h.textContent = live.title || "配信中";
-    on.appendChild(h);
-
-    if (live.note) {
-      var note = document.createElement("p");
-      note.className = "lamp__note";
-      note.textContent = live.note;
-      on.appendChild(note);
-    }
-
-    var frame = document.createElement("div");
-    frame.className = "frame";
-    var iframe = document.createElement("iframe");
-    iframe.src = "https://www.youtube-nocookie.com/embed/" + liveId;
-    iframe.title = live.title || "配信";
-    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture";
-    iframe.allowFullscreen = true;
-    iframe.loading = "lazy";
-    frame.appendChild(iframe);
-    on.appendChild(frame);
-
-    var go = document.createElement("a");
-    go.className = "btn";
-    go.href = live.url;
-    go.target = "_blank";
-    go.rel = "noopener noreferrer";
-    go.textContent = "YouTubeで見る";
-    on.appendChild(go);
-
-    slot.appendChild(on);
-  } else {
-    var off = document.createElement("div");
-    off.className = "lamp lamp--off";
-
-    var msg = document.createElement("p");
-    msg.className = "lamp__msg";
-    var strong = document.createElement("strong");
-    strong.textContent = "いまは配信していません";
-    msg.appendChild(strong);
-    msg.appendChild(document.createTextNode(
-      "配信が始まったらここに枠が出ます。"
-    ));
-    off.appendChild(msg);
-
-    var ch = document.createElement("a");
-    ch.className = "btn";
-    ch.href = SITE.channelUrl;
-    ch.target = "_blank";
-    ch.rel = "noopener noreferrer";
-    ch.textContent = "チャンネルを見に行く";
-    off.appendChild(ch);
-
-    slot.appendChild(off);
+  function elapsedText(iso) {
+    if (!iso) return "";
+    var start = Date.parse(iso);
+    if (!isFinite(start)) return "";
+    var min = Math.floor((Date.now() - start) / 60000);
+    if (min < 0) return "";
+    if (min < 60) return "配信開始から" + min + "分";
+    return "配信開始から" + Math.floor(min / 60) + "時間" + (min % 60) + "分";
   }
 
-  /* ---- 過去の配信 ---- */
+  /* live は { title, url, note?, startedAt? } か null。null なら消灯表示 */
+  function renderLive(live) {
+    liveId = live ? videoIdOf(live.url) : "";
+    liveNoteEl = null;
+    brandLamp.setAttribute("data-on", liveId ? "true" : "false");
+
+    while (slot.firstChild) { slot.removeChild(slot.firstChild); }
+
+    if (liveId) {
+      var on = document.createElement("div");
+      on.className = "lamp lamp--on";
+
+      var tag = document.createElement("span");
+      tag.className = "lamp__tag";
+      tag.textContent = "配信中";
+      on.appendChild(tag);
+
+      var h = document.createElement("p");
+      h.className = "lamp__title";
+      h.textContent = live.title || "配信中";
+      on.appendChild(h);
+
+      var noteText = live.note || elapsedText(live.startedAt);
+      liveNoteEl = document.createElement("p");
+      liveNoteEl.className = "lamp__note";
+      liveNoteEl.textContent = noteText;
+      liveNoteEl.hidden = !noteText;
+      on.appendChild(liveNoteEl);
+
+      var frame = document.createElement("div");
+      frame.className = "frame";
+      var iframe = document.createElement("iframe");
+      iframe.src = "https://www.youtube-nocookie.com/embed/" + liveId;
+      iframe.title = live.title || "配信";
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture";
+      iframe.allowFullscreen = true;
+      iframe.loading = "lazy";
+      frame.appendChild(iframe);
+      on.appendChild(frame);
+
+      var go = document.createElement("a");
+      go.className = "btn";
+      go.href = live.url;
+      go.target = "_blank";
+      go.rel = "noopener noreferrer";
+      go.textContent = "YouTubeで見る";
+      on.appendChild(go);
+
+      slot.appendChild(on);
+    } else {
+      var off = document.createElement("div");
+      off.className = "lamp lamp--off";
+
+      var msg = document.createElement("p");
+      msg.className = "lamp__msg";
+      var strong = document.createElement("strong");
+      strong.textContent = "いまは配信していません";
+      msg.appendChild(strong);
+      msg.appendChild(document.createTextNode(
+        "配信が始まったらここに枠が出ます。"
+      ));
+      off.appendChild(msg);
+
+      var ch = document.createElement("a");
+      ch.className = "btn";
+      ch.href = SITE.channelUrl;
+      ch.target = "_blank";
+      ch.rel = "noopener noreferrer";
+      ch.textContent = "チャンネルを見に行く";
+      off.appendChild(ch);
+
+      slot.appendChild(off);
+    }
+
+    applyFilter();
+  }
+
+  /* すでに出ている枠に、ひとことだけ足します（プレイヤーは作り直しません）。
+     手で書いたメモがあるときは触りません */
+  function updateLiveNote(startedAt) {
+    if (!liveNoteEl || liveNoteEl.textContent) return;
+    var text = elapsedText(startedAt);
+    if (!text) return;
+    liveNoteEl.textContent = text;
+    liveNoteEl.hidden = false;
+  }
+
+  /* ---- 過去の配信 ----
+     配信中の動画は「過去の配信」からは隠します（同じ配信が二重に出ないように）。
+     隠すのは applyFilter() の仕事なので、ここでは全部ぶんカードを作ります。 */
   var archives = (SITE.archives || []).filter(function (a) { return videoIdOf(a.url); });
   var grid = el("archiveGrid");
   var empty = el("emptyState");
@@ -739,27 +796,71 @@ a{ color:inherit; }
     li.appendChild(a);
     grid.appendChild(li);
 
-    nodes.push({ li: li, key: (item.title || "").toLowerCase() });
+    nodes.push({ li: li, key: (item.title || "").toLowerCase(), id: id });
   });
 
-  function render(shown) {
-    count.textContent = shown === archives.length
-      ? archives.length + "本"
-      : shown + " / " + archives.length + "本";
-    empty.hidden = shown !== 0;
-  }
-  render(archives.length);
+  var query = "";
 
-  el("finderInput").addEventListener("input", function () {
-    var q = this.value.trim().toLowerCase();
+  /* 検索のことばと「いま配信中か」の両方を見て、カードの出し入れと件数を直します */
+  function applyFilter() {
+    var total = 0;
     var shown = 0;
     nodes.forEach(function (n) {
-      var hit = !q || n.key.indexOf(q) !== -1;
+      if (n.id && n.id === liveId) { n.li.hidden = true; return; }
+      total++;
+      var hit = !query || n.key.indexOf(query) !== -1;
       n.li.hidden = !hit;
       if (hit) shown++;
     });
-    render(shown);
+    count.textContent = shown === total ? total + "本" : shown + " / " + total + "本";
+    empty.hidden = shown !== 0;
+  }
+
+  el("finderInput").addEventListener("input", function () {
+    query = this.value.trim().toLowerCase();
+    applyFilter();
   });
+
+  /* ---- 最初の表示 ---- */
+  renderLive(SITE.live);
+
+  /* ---- 配信状況の自動確認 ------------------------------------------------
+     /live-now が「いまアルセチカさんが配信中か」を答えます（functions/live-now.js）。
+     これがあるので、index.html の live: を書き換え忘れていても、ページのほうが
+     自動で追いつきます。
+
+     答えが返らないとき（関数を置いていない・落ちている・判断できない）は
+     何もしません。そのときは上の SITE.live に書いてある状態のままです。
+     live に pinned: true が付いているときは、人が決めた指定として尊重し、
+     自動確認では動かしません（チャンネルの /live に出てこない限定公開の
+     配信を手で出しているとき、それを消してしまわないようにするためです）。 */
+  var pinned = !!(SITE.live && SITE.live.pinned);
+
+  function checkLiveNow() {
+    if (typeof fetch !== "function" || pinned) return;
+    fetch("/live-now", { headers: { "accept": "application/json" } })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data || data.unknown) return;
+        if (data.live && data.id) {
+          if (data.id === liveId) {
+            updateLiveNote(data.startedAt);
+          } else {
+            renderLive({ title: data.title, url: data.url, startedAt: data.startedAt });
+          }
+        } else if (liveId) {
+          renderLive(null);
+        }
+      })
+      .catch(function () { /* つながらないときは黙って諦めます */ });
+  }
+
+  checkLiveNow();
+
+  /* 開いたままにしている人のぶん。数分おきに見にいきます */
+  setInterval(function () {
+    if (!document.hidden) checkLiveNow();
+  }, 180000);
 
   /* ---- フッター ---- */
   el("rights").textContent =

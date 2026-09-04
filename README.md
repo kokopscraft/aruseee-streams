@@ -9,10 +9,24 @@
 ├── public/            ← Cloudflare Pages が配信するのはここだけ
 │   ├── index.html     サイト本体（これ1枚で完結）
 │   └── _headers       レスポンスヘッダー設定
+├── functions/         ← Cloudflare Pages Functions
+│   └── live-now.js    /live-now 「いま配信中か」を答える
 ├── urls.txt           配信URLの一覧（ここにURLを足していく）
-├── update-archives.ps1  urls.txt から index.html を書き換えるスクリプト
+├── update-archives.ps1  urls.txt から「過去の配信」を書き換えるスクリプト
+├── update-live.ps1      「いまの配信」を配信状況に合わせるスクリプト
 └── .gitignore
 ```
+
+`functions/` は `public` の外ですが、これは公開されないためではなく、
+Cloudflare Pages が `functions/` を**リポジトリのルートから**探す仕様の
+ためです。ビルド出力ディレクトリ（`public`）とは別系統で扱われます。中身は
+静的ファイルとしては配信されず、`/live-now` というURLとして動きます。
+
+> **`public/functions/` に移動しないでください。** 公式ドキュメントに
+> 「Make sure that the `/functions` directory is at the root of your Pages
+> project (and not in the static root, such as `/dist`)」とあり、出力
+> ディレクトリの中に置くと関数として認識されず、ただのJavaScriptファイルが
+> 公開されるだけになります。
 
 `update-archives.ps1` と `urls.txt` をルートに置いているのは、`public` の外なら
 公開されないためです。`.ps1` が誰でもダウンロードできる状態になるのを避けています。
@@ -29,6 +43,14 @@ GitHubリポジトリを接続したうえで、ビルド設定を次のよう�
 
 ビルド処理は不要です。`main` ブランチにpushすると自動でデプロイされます。
 
+`functions/` のために設定を足す必要はありません。Cloudflare Pages が自動で
+拾って `/live-now` として公開します。デプロイ後に
+`https://＜サイトのURL＞/live-now` を開くと、`{"live":false}` のような
+JSONが返るはずです。404 になる場合は関数が拾われていないので、
+Cloudflare Pages の管理画面で「Functions」にファイルが表示されているか
+確認してください（拾われていなくてもサイト自体はこれまで通り動き、
+「いまの配信」が `SITE.live` の値のままになるだけです）。
+
 ## 配信を追加する手順
 
 1. `urls.txt` の一番上に配信URLを1行足す
@@ -44,16 +66,94 @@ yt-dlp が使えない環境では、`public/index.html` の `ARCHIVES:BEGIN` �
 
 ## 配信中の表示
 
-配信が始まったら `public/index.html` の `SITE.live` を次のように書き換えます。
+「いまの配信」は**自動で切り替わります**。配信のたびに何かする必要はありません。
+
+ページを開くと `/live-now` に問い合わせて、いま本当に配信中かどうかを確かめ、
+その結果で表示を決めます。ページを開いたままにしている人の画面も、3分おきに
+確かめて自動で切り替わります。
+
+`public/index.html` の `SITE.live` は、その問い合わせができなかったときに
+使われる**保険の値**です（ページを開いた瞬間の表示でもあります）。ふだんは
+`live: null` のままで構いません。
+
+### なぜサーバー側で確かめるのか
+
+ブラウザから直接 youtube.com を読むことはできません（CORSで止まります）。
+そこで同じオリジンの `functions/live-now.js` を経由しています。これは
+**Cloudflare Pages Functions**（= Cloudflare Workers）で、`functions/` を
+リポジトリのルートに置くだけで `/live-now` として公開されます。ビルド設定は
+変えなくてよく、APIキーも要りません。
+
+YouTubeがチャンネルの `/live` ページの `<head>` に入れている schema.org の
+メタタグを読んで判断しています。
+
+| 見ているもの | 意味 |
+| --- | --- |
+| `itemprop="isLiveBroadcast"` | 配信（だった）かどうか |
+| `itemprop="endDate"` | **これがあると、その配信はもう終わっている** |
+| `itemprop="startDate"` | 未来なら待機枠なので、まだ配信中ではない |
+| `itemprop="identifier"` | 動画ID |
+| `itemprop="name"` | 配信タイトル |
+
+答えは60秒キャッシュされるので、配信の開始・終了がサイトに出るまで最大1分
+ほどの遅れがあります。問い合わせに失敗したときは「わからない」を返し、
+ページは `SITE.live` の値のまま何もしません（勝手に消灯したりしません）。
+
+### 手元で `SITE.live` も合わせておきたいとき
+
+`/live-now` があれば不要ですが、保険の値も合わせておきたい場合や、
+Cloudflare Pages Functions を使わない場合はこちらを使います。
+
+```powershell
+.\update-live.ps1
+```
+
+チャンネルを yt-dlp で見て、配信中なら「配信中」の枠と埋め込みプレイヤーを
+出し、配信していなければ `live: null,` に戻します。始まったときと終わった
+ときで、どちらもこれ1つです。実行したらコミットしてpushします。
+
+| コマンド | すること |
+| --- | --- |
+| `.\update-live.ps1` | チャンネルを見て、配信状況に合わせる |
+| `.\update-live.ps1 -Off` | 問い合わせずに消灯に戻す（yt-dlp も通信も不要） |
+| `.\update-live.ps1 -Url <URL>` | チャンネルではなく、その配信を見て判断する |
+| `.\update-live.ps1 -Url <URL> -Force` | まだ始まっていない待機枠でも点灯させる |
+| `.\update-live.ps1 -Note "21時まで"` | 枠の下にひとこと添える |
+
+待機枠（公開予約）のときは、そのままだと「配信中」と嘘になるため点灯しません。
+先に枠を出したいときだけ `-Force` を付けてください。
+
+### 限定公開など、チャンネルの `/live` に出てこない配信
+
+`/live-now` からは見えないので、手で指定します。`-Url` か `-Force` を付けて
+実行すると `pinned: true` が書き込まれ、`/live-now` の答えより優先されます。
+
+```powershell
+.\update-live.ps1 -Url https://www.youtube.com/watch?v=XXXXXXXXXXX -Force
+```
+
+`pinned: true` が付いているあいだは自動確認で動きません。配信が終わったら
+`.\update-live.ps1 -Off` で消灯に戻してください。
+
+### 手で書き換える場合
+
+`public/index.html` の `LIVE:BEGIN` 〜 `LIVE:END` の間を次の形にします
+（マーカーのコメント行は消さないでください）。
 
 ```javascript
 live: {
   title: "配信タイトル",
-  url: "https://www.youtube.com/watch?v=XXXXXXXXXXX"
+  url: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
+  note: "23時ごろまで",       // 任意。枠の下に出るひとこと
+  pinned: true                // 任意。自動確認で動かされたくないとき
 },
 ```
 
 配信が終わったら `live: null,` に戻します。
+
+配信中の動画を `urls.txt` に足してしまっても大丈夫です。配信中のものは
+「過去の配信」から自動で外れるので、二重には出ません。配信が終われば
+そのまま過去の配信として並びます。
 
 ## 検索エンジンへの対応
 
