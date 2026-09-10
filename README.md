@@ -129,14 +129,33 @@ https://＜サイトのURL＞/live-now?debug=1
 | 項目 | 見どころ |
 | --- | --- |
 | `finalUrl` | 追跡の末にどのURLへ着いたか（同意画面へ飛んでいれば一目で分かる） |
-| `pageTitle` | 配信タイトルなら正常。「Before you continue」などなら弾かれている |
+| `status` / `location` | リダイレクトで飛ばされていないか |
+| `pageTitle` | 配信タイトルなら正常。空や「Before you continue」なら中身が来ていない |
 | `itempropsSeen` | 空っぽなら schema.org のメタが無いページを受け取っている |
 | `meta` | 抜き出せた値 |
+| `bodyHead` | 本文の先頭1200文字。HTML以外（RSSやJSON）を叩いたときはここを読む |
 | `decided` | その材料での判定結果 |
+
+叩き先と叩き方も変えられます。YouTubeは接続元によって中身を出さないことが
+あるので、「Cloudflareからならどの入口が読めるのか」を探すのに使います。
+
+| パラメータ | すること |
+| --- | --- |
+| `&target=<URL>` | その URL を代わりに読む（`youtube.com` / `ytimg.com` / `youtu.be` のみ） |
+| `&cookie=1` | 同意用のCookieを付けて読む |
+| `&manual=1` | リダイレクトを追わず、`status` と `location` をそのまま見る |
+
+```
+/live-now?debug=1&target=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D...
+/live-now?debug=1&target=https%3A%2F%2Fwww.youtube.com%2Ffeeds%2Fvideos.xml%3Fchannel_id%3DUC...
+```
 
 手元で `npx wrangler pages dev public` を動かして
 `http://127.0.0.1:8788/live-now?debug=1` と見比べると、コードの問題なのか、
 Cloudflareから YouTube がどう見えているかの問題なのかが切り分けられます。
+
+`target` を絞っているのは、この関数が誰でも好きなURLを叩ける踏み台に
+ならないようにするためです。
 
 ### 手元で `SITE.live` も合わせておきたいとき
 
