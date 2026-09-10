@@ -592,7 +592,10 @@ a{ color:inherit; }
     column-gap:clamp(20px, 3vw, 34px);
     align-items:start;
   }
-  .lamp--on .lamp__tag  { grid-area:1 / 1; }
+  /* グリッドの子は display が block 側に置き換わるので、
+     「配信中」のピルとボタンには justify-self:start が要ります。
+     付けないと、文字の幅ではなく列の幅まで横に伸びてしまいます。 */
+  .lamp--on .lamp__tag  { grid-area:1 / 1; justify-self:start; }
   .lamp--on .lamp__title{ grid-area:2 / 1; }
   .lamp--on .lamp__note { grid-area:3 / 1; }
   .lamp--on .btn        { grid-area:4 / 1; align-self:start; justify-self:start; }
