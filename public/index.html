@@ -576,6 +576,34 @@ a{ color:inherit; }
 .footer p:last-child{ margin-bottom:0; }
 .footer a{ color:var(--sky-deep); }
 
+/* 画面が広いとき、「いまの配信」を2段組にします。
+   1列のままだと、横幅いっぱいのプレイヤーが16:9で縦にも伸びて、
+   PCでは画面を埋めるほど大きくなってしまうためです。
+   左にタイトル・経過時間・ボタン、右にプレイヤーを置きます。
+
+   HTMLの並び（配信中→タイトル→経過時間→プレイヤー→ボタン）は
+   変えずに、置き場所だけ指定しています。狭い画面ではこの指定が効かず、
+   そのままの縦並びになります。 */
+@media (min-width:800px){
+  .lamp--on{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);
+    grid-template-rows:auto auto auto 1fr;
+    column-gap:clamp(20px, 3vw, 34px);
+    align-items:start;
+  }
+  .lamp--on .lamp__tag  { grid-area:1 / 1; }
+  .lamp--on .lamp__title{ grid-area:2 / 1; }
+  .lamp--on .lamp__note { grid-area:3 / 1; }
+  .lamp--on .btn        { grid-area:4 / 1; align-self:start; justify-self:start; }
+  /* プレイヤーは右の列で、左の内容の高さぶん全部にまたがらせます */
+  .lamp--on .frame{
+    grid-area:1 / 2 / -1 / 3;
+    margin-top:0;
+    align-self:start;
+  }
+}
+
 @media (max-width:560px){
   .masthead__inner{ align-items:flex-start; }
   .finder{ margin-left:0; width:100%; }
