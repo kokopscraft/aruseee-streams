@@ -72,6 +72,9 @@
  *                  watchページ直読み、サムネイルなどを試すため）
  *   &cookie=1      同意用のCookieを付けて読む（EU向けの同意画面を飛ばす定番）
  *   &manual=1      リダイレクトを追わずに、返ってきた status と Location を見る
+ *   &find=a,b,c    本文の奥まで流し読みして、そのことばが入っているかと、
+ *                  前後200文字を返す（"isLive" など、1MBの奥にある値を
+ *                  確かめるため。付けると itemprop の抜き出しはしません）
  */
 
 /* 調べにいくチャンネル。ハンドルが変わったらここだけ直せば動きます */
@@ -93,8 +96,9 @@ const BROWSER_UA =
   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 /* ?target= で指定できる相手。ここを絞っておかないと、誰でもこの関数を
-   踏み台にして好きなURLを叩けてしまいます */
-const ALLOWED_TARGET_RE = /(?:^|\.)(?:youtube\.com|ytimg\.com|youtu\.be)$/i;
+   踏み台にして好きなURLを叩けてしまいます。googleapis.com を入れてあるのは、
+   YouTube Data API に切り替えたときに届くかどうかを確かめるためです */
+const ALLOWED_TARGET_RE = /(?:^|\.)(?:youtube\.com|ytimg\.com|youtu\.be|googleapis\.com)$/i;
 
 /* HTMLの属性値に入っている実体参照を戻します（&amp; → &）。
    YouTubeは content="People &amp; Blogs" のように書いてきます */
@@ -264,17 +268,69 @@ function isTextual(contentType) {
   return t.indexOf("text/") === 0 || t.indexOf("xml") !== -1 || t.indexOf("json") !== -1;
 }
 
+/* 本文をぜんぶ文字にせず、探していることばが入っているかだけを流しながら
+   確かめます。YouTubeのページは、欲しい値が1MBの奥のほうに入っていることが
+   あるので（ytInitialPlayerResponse の中の "isLive" など）、先頭1200文字を
+   見るだけでは足りません。
+
+   境目で見落とさないように、チャンクの末尾だけ次に持ち越します。持ち越した
+   ぶんに丸ごと収まっている一致は前の回で数えているので、飛ばします。 */
+async function scanBody(response, needles) {
+  const found = {};
+  needles.forEach(function (n) { found[n] = { count: 0, snippet: null }; });
+
+  const overlap = needles.reduce(function (m, n) { return Math.max(m, n.length); }, 0) + 8;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  const LIMIT = 4 * 1024 * 1024;
+
+  let carry = "";
+  let scanned = 0;
+  while (scanned < LIMIT) {
+    const step = await reader.read();
+    if (step.done) break;
+    scanned += step.value.byteLength;
+
+    const text = carry + decoder.decode(step.value, { stream: true });
+    needles.forEach(function (n) {
+      let at = text.indexOf(n);
+      while (at !== -1) {
+        /* 持ち越したぶんに収まっている一致は、前の回で数えてあります */
+        if (at + n.length > carry.length) {
+          const slot = found[n];
+          slot.count++;
+          if (!slot.snippet) {
+            slot.snippet = text.slice(Math.max(0, at - 80), at + n.length + 200);
+          }
+        }
+        at = text.indexOf(n, at + n.length);
+      }
+    });
+
+    carry = text.slice(Math.max(0, text.length - overlap));
+  }
+
+  try { await reader.cancel(); } catch (err) { /* もう閉じていても構いません */ }
+  return { scannedBytes: scanned, hits: found };
+}
+
 /* 返ってきたものを、人が見て分かる形にまとめます。
    本文の先頭も付けるので、HTMLでないもの（RSS・oEmbedのJSONなど）を
    ?target= で叩いたときも中身が読めます */
-async function buildDebugReport(target, upstream, sentHeaders) {
+async function buildDebugReport(target, upstream, sentHeaders, needles) {
   const contentType = upstream.headers.get("content-type");
   const textual = isTextual(contentType);
 
   /* 本文は1回しか読めないので、先頭を読む用に複製しておきます */
   const forHead = textual && upstream.body ? upstream.clone() : null;
 
-  const found = upstream.body
+  /* find= が付いているときは、メタの抜き出しではなく本文の探索に使います */
+  let scan = null;
+  if (needles && needles.length && upstream.body) {
+    scan = await scanBody(upstream, needles);
+  }
+
+  const found = !scan && upstream.body
     ? await extractMeta(upstream, { debug: true })
     : { meta: {}, debug: { pageTitle: "", itemprops: [] } };
 
@@ -302,8 +358,10 @@ async function buildDebugReport(target, upstream, sentHeaders) {
     itempropsSeen: found.debug.itemprops,
     meta: found.meta,
     bodyHead: bodyHead,
+    scannedBytes: scan ? scan.scannedBytes : undefined,
+    find: scan ? scan.hits : undefined,
     now: new Date().toISOString(),
-    decided: decideLive(found.meta, Date.now()),
+    decided: scan ? undefined : decideLive(found.meta, Date.now()),
   };
 }
 
@@ -358,7 +416,15 @@ export async function onRequestGet(context) {
   try {
     const upstream = await fetch(target, init);
 
-    if (debug) return debugResponse(await buildDebugReport(target, upstream, sentHeaders));
+    if (debug) {
+      /* find= は「,」区切り。多すぎ・長すぎは切り落とします */
+      const needles = (params.get("find") || "")
+        .split(",")
+        .map(function (s) { return s.trim(); })
+        .filter(function (s) { return s.length > 0 && s.length <= 60; })
+        .slice(0, 8);
+      return debugResponse(await buildDebugReport(target, upstream, sentHeaders, needles));
+    }
 
     if (!upstream.ok) {
       /* YouTube側の一時的な失敗。「配信していない」と断言はしません。
