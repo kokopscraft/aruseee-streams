@@ -5,6 +5,7 @@
 #   ・URLでも動画IDだけでも構いません
 #   ・書き換えたら update-archives.ps1 を実行すると index.html に反映されます
 
+https://www.youtube.com/watch?v=e0lyo5WQNRI
 https://www.youtube.com/watch?v=Rung0youUhg
 https://www.youtube.com/watch?v=hiU3ZQ4jDwo
 https://www.youtube.com/watch?v=bSlgzPNIJmg
