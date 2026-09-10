@@ -11,6 +11,19 @@
  *   ブラウザから直接 youtube.com を読むことはできません（CORSで止まります）。
  *   同じオリジンのこの関数を経由すれば、その制限を受けません。
  *
+ * 調べ方は2通りあり、環境変数で切り替わります。
+ *
+ *   YT_API_KEY あり → YouTube Data API v3 を使う（推奨。下の「APIの経路」）
+ *   YT_API_KEY なし → YouTubeのページのメタタグを読む（下の「HTMLの経路」）
+ *
+ *   Cloudflareから youtube.com のHTMLを読むと、中身を抜かれた空のページが
+ *   200 で返ってきます（接続元で弾かれています）。そのため実際に配信中を
+ *   検知できるのはAPIの経路だけです。HTMLの経路は、キーを入れる前の動きを
+ *   変えないために残してあります（手元の wrangler では動きます）。
+ *
+ *   キーの設定: Cloudflare Pages の管理画面 →
+ *   Settings → Environment variables → YT_API_KEY
+ *
  * 返すもの:
  *   配信中     { "live": true, "id": "...", "title": "...", "url": "...",
  *               "startedAt": "2026-09-03T13:03:53+00:00" }
@@ -347,6 +360,7 @@ async function buildDebugReport(target, upstream, sentHeaders, needles) {
   }
 
   return {
+    route: "html",
     requested: target,
     sentHeaders: sentHeaders,
     finalUrl: upstream.url,
@@ -365,10 +379,142 @@ async function buildDebugReport(target, upstream, sentHeaders, needles) {
   };
 }
 
+/* ---- YouTube Data API v3 の経路 -----------------------------------------
+
+   Cloudflareから youtube.com のHTMLを読むと、中身を抜かれた空のページが
+   200 で返ってきます（?debug=1 で確かめました。接続元で弾かれていて、
+   Cookieを付けても、watch/embed/モバイル版に変えても同じ）。
+   HTMLに頼らない道がこれです。
+
+   段取り:
+     1. チャンネルのRSSフィードで、最近の動画IDを集める（APIの外なので0ユニット。
+        HTMLと違ってCloudflareからも中身が読めます）
+     2. videos.list にそのIDをまとめて渡し、liveStreamingDetails を見る
+        （IDを50件まとめても1リクエスト＝1ユニット）
+     3. actualStartTime があって actualEndTime が無いものが、いま配信中
+
+   クォータ: videos.list は1ユニット。60秒キャッシュなので、アクセスが
+   途切れず来ても1日あたり最大1,440ユニット（無料枠は10,000）。
+   超えた場合もAPIが403を返すだけで、その答えは unknown なので画面は壊れません。
+
+   限定公開の配信はAPIにも出てこないので、そこは update-live.ps1 -Url で
+   index.html に直接書く運用のままです。 */
+
+/* RSSフィードを引くのに使います。チャンネルが変わったらここも直します */
+const CHANNEL_ID = "UCA29qr40S9DBKpkgXbUUqgg";
+
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID;
+
+/**
+ * videos.list の答えから「いま配信中か」を決めます。
+ * これも副作用のない関数なので、そのままテストできます。
+ */
+export function decideFromApi(items, nowMs) {
+  let best = null;
+  let bestStart = -Infinity;
+
+  (items || []).forEach(function (item) {
+    const details = item.liveStreamingDetails || {};
+    const snippet = item.snippet || {};
+
+    /* 終わった配信には actualEndTime が付きます */
+    if (details.actualEndTime) return;
+
+    const started = details.actualStartTime ? Date.parse(details.actualStartTime) : NaN;
+    const startedAlready = Number.isFinite(started) && started <= nowMs + SKEW_MS;
+
+    /* liveBroadcastContent は "live" / "upcoming" / "none" のどれか。
+       待機枠は "upcoming" なので、ここで落ちます */
+    if (snippet.liveBroadcastContent !== "live" && !startedAlready) return;
+
+    /* 同時に複数あったときは、いちばん最近始まったものを出します */
+    const rank = Number.isFinite(started) ? started : 0;
+    if (rank >= bestStart) {
+      bestStart = rank;
+      best = {
+        live: true,
+        id: item.id,
+        title: snippet.title || "",
+        url: "https://www.youtube.com/watch?v=" + item.id,
+      };
+      if (details.actualStartTime) best.startedAt = details.actualStartTime;
+    }
+  });
+
+  return best || { live: false };
+}
+
+/* RSSフィードから動画IDを集めます。フィードは40KBほどなので、
+   ここは素直に文字列にして構いません（HTMLの1MBとは事情が違います） */
+async function fetchRecentVideoIds(useCache) {
+  const init = {
+    headers: { "user-agent": BROWSER_UA, "accept": "application/atom+xml,text/xml" },
+    redirect: "follow",
+  };
+  if (useCache) init.cf = { cacheTtl: CACHE_SECONDS, cacheEverything: true };
+
+  const res = await fetch(FEED_URL, init);
+  if (!res.ok) return { ok: false, status: res.status, ids: [] };
+
+  const xml = await res.text();
+  const ids = [];
+  const re = /<yt:videoId>([\w-]{11})<\/yt:videoId>/g;
+  let m = re.exec(xml);
+  while (m && ids.length < 50) {
+    if (ids.indexOf(m[1]) === -1) ids.push(m[1]);
+    m = re.exec(xml);
+  }
+  return { ok: true, status: res.status, ids: ids };
+}
+
+/* APIの経路で「いま配信中か」を出します。
+   report を渡すと、途中で見たものをそこに書き足します（?debug=1 用） */
+async function checkViaApi(apiKey, useCache, report) {
+  const feed = await fetchRecentVideoIds(useCache);
+  if (report) {
+    report.route = "api";
+    report.feedUrl = FEED_URL;
+    report.feedStatus = feed.status;
+    report.videoIds = feed.ids;
+  }
+  if (!feed.ok) return { unknown: true, reason: "feed " + feed.status };
+  if (!feed.ids.length) return { unknown: true, reason: "feed-empty" };
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.searchParams.set("part", "snippet,liveStreamingDetails");
+  url.searchParams.set("id", feed.ids.join(","));
+  url.searchParams.set("fields",
+    "items(id,snippet(title,liveBroadcastContent),liveStreamingDetails(actualStartTime,actualEndTime,scheduledStartTime))");
+  url.searchParams.set("key", apiKey);
+
+  const init = { headers: { "accept": "application/json" } };
+  if (useCache) init.cf = { cacheTtl: CACHE_SECONDS, cacheEverything: true };
+
+  const res = await fetch(url.toString(), init);
+  if (report) report.apiStatus = res.status;
+
+  if (!res.ok) {
+    /* クォータ切れ（403）でもここに来ます。断言せず unknown を返すので、
+       画面は SITE.live の値のままになります */
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = (body && body.error && body.error.message) || "";
+    } catch (err) { /* JSONで返ってこないこともあります */ }
+    if (report) report.apiError = detail;
+    return { unknown: true, reason: "api " + res.status };
+  }
+
+  const body = await res.json();
+  if (report) report.apiItems = body.items || [];
+  return decideFromApi(body.items, Date.now());
+}
+
 export async function onRequestGet(context) {
-  const { request, waitUntil } = context;
+  const { request, env, waitUntil } = context;
   const params = new URL(request.url).searchParams;
   const debug = params.get("debug") === "1";
+  const apiKey = (env && env.YT_API_KEY) || "";
 
   /* 同じ答えを使いまわします。1分に1回だけYouTubeを見にいく形にするためです */
   const cacheKey = new Request(new URL("/live-now", request.url).toString(), { method: "GET" });
@@ -379,9 +525,34 @@ export async function onRequestGet(context) {
     if (hit) return hit;
   }
 
+  const asked = debug ? params.get("target") : null;
+
+  /* APIキーが設定されていればAPIの経路を使います。無ければ今までどおり
+     HTMLを読みます（キーを入れるまで動きが変わらないようにするため）。
+     ?target= を付けた診断は、キーの有無にかかわらずHTMLの経路として動きます */
+  if (apiKey && !asked) {
+    const report = debug ? { now: new Date().toISOString() } : null;
+    let apiPayload;
+    try {
+      apiPayload = await checkViaApi(apiKey, !debug, report);
+    } catch (err) {
+      apiPayload = { unknown: true, reason: "error" };
+      if (report) report.error = String((err && err.message) || err);
+    }
+    if (report) {
+      report.decided = apiPayload;
+      return debugResponse(report);
+    }
+    const apiResponse = jsonResponse(
+      apiPayload,
+      apiPayload.unknown ? UNKNOWN_CACHE_SECONDS : CACHE_SECONDS
+    );
+    waitUntil(cache.put(cacheKey, apiResponse.clone()));
+    return apiResponse;
+  }
+
   /* ふだんはチャンネルの /live を読みます。debug のときだけ相手を変えられます */
   let target = CHANNEL.replace(/\/+$/, "") + "/live";
-  const asked = debug ? params.get("target") : null;
   if (asked) {
     let parsed = null;
     try { parsed = new URL(asked); } catch (err) { parsed = null; }

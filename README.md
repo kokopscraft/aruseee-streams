@@ -81,8 +81,51 @@ yt-dlp が使えない環境では、`public/index.html` の `ARCHIVES:BEGIN` �
 ブラウザから直接 youtube.com を読むことはできません（CORSで止まります）。
 そこで同じオリジンの `functions/live-now.js` を経由しています。これは
 **Cloudflare Pages Functions**（= Cloudflare Workers）で、`functions/` を
-リポジトリのルートに置くだけで `/live-now` として公開されます。ビルド設定は
-変えなくてよく、APIキーも要りません。
+リポジトリのルートに置くだけで `/live-now` として公開されます。ビルド設定を
+変える必要はありません。
+
+### 調べ方は2通り（環境変数で切り替わります）
+
+| `YT_API_KEY` | 使う経路 |
+| --- | --- |
+| 設定あり | **YouTube Data API v3**（こちらが本番。実際に配信中を検知できる） |
+| 設定なし | YouTubeのページのメタタグを読む（下の「HTMLの経路」） |
+
+**Cloudflare から youtube.com のHTMLを読むと、中身を抜かれた空のページが
+200 で返ってきます。** 接続元で弾かれていて、同意用のCookieを付けても、
+`watch` / `embed` / モバイル版に変えても同じでした（`?debug=1` で確認）。
+そのため、実際に配信中を検知できるのはAPIの経路だけです。HTMLの経路は、
+キーを入れる前の動きを変えないために残してあります（手元の
+`wrangler pages dev` では自宅の回線から読むので、こちらでも動きます）。
+
+#### APIの経路
+
+1. チャンネルのRSSフィードで最近の動画IDを集める（API外なので**0ユニット**。
+   HTMLと違って Cloudflare からも中身が読めます）
+2. `videos.list` にそのIDをまとめて渡し、`liveStreamingDetails` を見る
+   （IDを50件まとめても**1リクエスト＝1ユニット**）
+3. `actualStartTime` があって `actualEndTime` が無いものが、いま配信中
+
+クォータは1日10,000ユニットの無料枠に対し、60秒キャッシュなので**最大でも
+1日約1,440ユニット**です。超えてもAPIが403を返すだけで、その答えは
+`unknown` なので画面は壊れません。100ユニットかかる `search.list` は
+使いません。
+
+限定公開の配信はAPIにも出てこないので、そこは `update-live.ps1 -Url` で
+`SITE.live` に直接書く運用のままです。
+
+#### APIキーを設定する
+
+Google Cloud でキーを発行し、Cloudflare Pages の
+Settings → Environment variables に `YT_API_KEY` として登録します
+（Production と Preview の両方に入れておくと、プレビューでも同じように
+動きます）。登録したあと、一度デプロイし直すと反映されます。
+
+キーには「YouTube Data API v3 のみ」というAPI制限をかけておきます。
+Webサイト（HTTPリファラー）による制限は、この関数がサーバー側から呼ぶため
+効きません。
+
+#### HTMLの経路
 
 YouTubeがチャンネルの `/live` ページの `<head>` に入れている schema.org の
 メタタグを読んで判断しています。
