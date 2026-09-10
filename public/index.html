@@ -767,6 +767,14 @@ a{ color:inherit; }
       iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture";
       iframe.allowFullscreen = true;
       iframe.loading = "lazy";
+      /* このサイトは _headers で Referrer-Policy: no-referrer をかけているため、
+         そのままだとプレイヤーに参照元がまったく届かず、YouTube側が
+         「動画プレイヤーの設定エラー（エラー153）」を出します。
+         埋め込みだけは、ドメインだけを伝える指定に上書きします
+         （送るのは https://＜このサイト＞/ までで、ページのパスは送りません）。
+         サムネイル画像は下で画像ごとに no-referrer を明示しているので、
+         ここを緩めても影響しません。 */
+      iframe.referrerPolicy = "strict-origin-when-cross-origin";
       frame.appendChild(iframe);
       on.appendChild(frame);
 
