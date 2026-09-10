@@ -6,3 +6,6 @@
 Thumbs.db
 desktop.ini
 .vscode/
+
+# wrangler pages dev が作る作業用ディレクトリ
+.wrangler/
