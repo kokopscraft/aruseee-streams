@@ -584,6 +584,18 @@ a{ color:inherit; }
 .footer p:last-child{ margin-bottom:0; }
 .footer a{ color:var(--sky-deep); }
 
+/* 連絡先。取り下げの依頼や、ここにないアーカイブの情報をもらう窓口です */
+.footer__contact{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px 14px;
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid #dbe8ec;
+}
+.footer__contact p{ margin:0; }
+
 /* 画面が広いとき、「いまの配信」を2段組にします。
    1列のままだと、横幅いっぱいのプレイヤーが16:9で縦にも伸びて、
    PCでは画面を埋めるほど大きくなってしまうためです。
@@ -678,6 +690,15 @@ a{ color:inherit; }
   <div class="shell footer__inner">
     <p id="rights"></p>
     <p id="disclaimer"></p>
+    <div class="footer__contact">
+      <p>
+        掲載の取り下げのご連絡や、当サイトに掲載のないアーカイブをお持ちの方は
+        こちらからお願いします。
+      </p>
+      <a class="btn" href="https://x.com/koko_minecraft2" target="_blank" rel="noopener">
+        サイト管理人のX
+      </a>
+    </div>
   </div>
 </footer>
 
