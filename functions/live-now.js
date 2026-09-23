@@ -88,6 +88,12 @@
  *   &find=a,b,c    本文の奥まで流し読みして、そのことばが入っているかと、
  *                  前後200文字を返す（"isLive" など、1MBの奥にある値を
  *                  確かめるため。付けると itemprop の抜き出しはしません）
+ *
+ * APIの経路（YT_API_KEY あり）では、次のパラメータも使えます。
+ *
+ *   &skipfeed=1    RSSフィードを読まずに、控えの playlistItems.list だけで
+ *                  判定する。控えの経路はRSSが落ちたときしか通らないので、
+ *                  ふだんのうちに動くかを確かめるためです（1ユニット余分にかかります）
  */
 
 /* 調べにいくチャンネル。ハンドルが変わったらここだけ直せば動きます */
@@ -107,6 +113,18 @@ const SKEW_MS = 60 * 1000;
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+/* YouTube や API への問い合わせを Cloudflare に寝かせてもらうときの指定です。
+   寝かせるのは成功（2xx）だけにします。cacheTtl で一律に寝かせると、
+   404 のような失敗まで60秒寝かされ、すぐに読み直しても同じ失敗が
+   返ってきてしまいます。負の値は「寝かせない」という意味です */
+function upstreamCf(useCache) {
+  if (!useCache) return undefined;
+  return {
+    cacheTtlByStatus: { "200-299": CACHE_SECONDS, "300-599": -1 },
+    cacheEverything: true,
+  };
+}
 
 /* ?target= で指定できる相手。ここを絞っておかないと、誰でもこの関数を
    踏み台にして好きなURLを叩けてしまいます。googleapis.com を入れてあるのは、
@@ -389,12 +407,17 @@ async function buildDebugReport(target, upstream, sentHeaders, needles) {
    段取り:
      1. チャンネルのRSSフィードで、最近の動画IDを集める（APIの外なので0ユニット。
         HTMLと違ってCloudflareからも中身が読めます）
+        RSSは有効なチャンネルにもときどき 404 や 500 を返すので、失敗したら
+        すぐに1回だけ読み直し、それでもだめなら playlistItems.list で
+        アップロード再生リストを読みます（こちらは1ユニット）
      2. videos.list にそのIDをまとめて渡し、liveStreamingDetails を見る
         （IDを50件まとめても1リクエスト＝1ユニット）
      3. actualStartTime があって actualEndTime が無いものが、いま配信中
 
    クォータ: videos.list は1ユニット。60秒キャッシュなので、アクセスが
    途切れず来ても1日あたり最大1,440ユニット（無料枠は10,000）。
+   RSSが読めずに playlistItems.list へ切り替えた回は2ユニットなので、
+   RSSが丸1日落ちていても最大2,880ユニットです。
    超えた場合もAPIが403を返すだけで、その答えは unknown なので画面は壊れません。
 
    限定公開の配信はAPIにも出てこないので、そこは update-live.ps1 -Url で
@@ -404,6 +427,11 @@ async function buildDebugReport(target, upstream, sentHeaders, needles) {
 const CHANNEL_ID = "UCA29qr40S9DBKpkgXbUUqgg";
 
 const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID;
+
+/* チャンネルの動画がぜんぶ入っている「アップロード」の再生リスト。
+   チャンネルIDの先頭の UC を UU に変えたものが、そのIDです。
+   RSSフィードが読めないときに、APIからこれを読みます */
+const UPLOADS_PLAYLIST_ID = "UU" + CHANNEL_ID.slice(2);
 
 /**
  * videos.list の答えから「いま配信中か」を決めます。
@@ -445,18 +473,25 @@ export function decideFromApi(items, nowMs) {
 }
 
 /* RSSフィードから動画IDを集めます。フィードは40KBほどなので、
-   ここは素直に文字列にして構いません（HTMLの1MBとは事情が違います） */
+   ここは素直に文字列にして構いません（HTMLの1MBとは事情が違います）。
+   つながらなかったときも例外にはせず、失敗として返します（読み直すため） */
 async function fetchRecentVideoIds(useCache) {
   const init = {
     headers: { "user-agent": BROWSER_UA, "accept": "application/atom+xml,text/xml" },
     redirect: "follow",
   };
-  if (useCache) init.cf = { cacheTtl: CACHE_SECONDS, cacheEverything: true };
+  const cf = upstreamCf(useCache);
+  if (cf) init.cf = cf;
 
-  const res = await fetch(FEED_URL, init);
-  if (!res.ok) return { ok: false, status: res.status, ids: [] };
-
-  const xml = await res.text();
+  let res = null;
+  let xml = "";
+  try {
+    res = await fetch(FEED_URL, init);
+    if (!res.ok) return { ok: false, status: res.status, ids: [] };
+    xml = await res.text();
+  } catch (err) {
+    return { ok: false, status: res ? res.status : 0, ids: [] };
+  }
   const ids = [];
   const re = /<yt:videoId>([\w-]{11})<\/yt:videoId>/g;
   let m = re.exec(xml);
@@ -467,28 +502,106 @@ async function fetchRecentVideoIds(useCache) {
   return { ok: true, status: res.status, ids: ids };
 }
 
+/* RSSフィードが読めないときの控え。APIでアップロード再生リストを読みます。
+   RSSとは別のサービスなので、フィードが落ちているときの代わりになります。
+   playlistItems.list は1ユニットです */
+async function fetchUploadsViaApi(apiKey, useCache) {
+  const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+  url.searchParams.set("part", "contentDetails");
+  url.searchParams.set("playlistId", UPLOADS_PLAYLIST_ID);
+  /* RSSフィードに載るのと同じ、最新の15件 */
+  url.searchParams.set("maxResults", "15");
+  url.searchParams.set("fields", "items(contentDetails(videoId))");
+  url.searchParams.set("key", apiKey);
+
+  const init = { headers: { "accept": "application/json" } };
+  const cf = upstreamCf(useCache);
+  if (cf) init.cf = cf;
+
+  let res = null;
+  let body = null;
+  try {
+    res = await fetch(url.toString(), init);
+    if (!res.ok) return { ok: false, status: res.status, ids: [] };
+    body = await res.json();
+  } catch (err) {
+    return { ok: false, status: res ? res.status : 0, ids: [] };
+  }
+
+  const ids = [];
+  ((body && body.items) || []).forEach(function (item) {
+    const id = item && item.contentDetails && item.contentDetails.videoId;
+    if (id && VIDEO_ID_RE.test(id) && ids.indexOf(id) === -1) ids.push(id);
+  });
+  return { ok: true, status: res.status, ids: ids };
+}
+
+/* 最近の動画IDを集めます。次の順に試して、最初に取れたものを使います。
+     1. RSSフィード
+     2. もう一度RSSフィード（一時的な失敗なら、これで通ることが多い）
+     3. APIでアップロード再生リスト（1ユニット）
+   RSSは、有効なチャンネルにもときどき 404 や 500 を返します
+   （2026-09-23 には、別のチャンネルも含めてそうなる時間帯がありました）。
+   そこで諦めて unknown を返すと、配信中でも画面には出ません。
+
+   report を渡すと、何を試して何が返ってきたかを書き足します（?debug=1 用）。
+   skipFeed が真なら、RSSを飛ばして 3 だけを試します（?debug=1&skipfeed=1 用） */
+async function collectRecentVideoIds(apiKey, useCache, report, skipFeed) {
+  const attempts = [];
+  let found = null;
+
+  for (let n = 0; n < 2 && !found && !skipFeed; n++) {
+    const feed = await fetchRecentVideoIds(useCache);
+    attempts.push(describeAttempt("feed", feed));
+    if (feed.ok && feed.ids.length) {
+      found = { source: n === 0 ? "feed" : "feed-retry", ids: feed.ids };
+    }
+  }
+
+  if (!found) {
+    const list = await fetchUploadsViaApi(apiKey, useCache);
+    attempts.push(describeAttempt("playlist", list));
+    if (list.ok && list.ids.length) found = { source: "playlist", ids: list.ids };
+  }
+
+  if (report) {
+    report.feedUrl = FEED_URL;
+    report.attempts = attempts;
+    report.idSource = found ? found.source : null;
+    report.videoIds = found ? found.ids : [];
+  }
+
+  return found
+    ? { ok: true, ids: found.ids }
+    : { ok: false, reason: attempts.join(", ") };
+}
+
+/* 1回ぶんの結果を短い文字にします。?debug=1 の attempts と、unknown の
+   reason に載せます（"feed 404" / "feed 200 empty" / "playlist error" など） */
+function describeAttempt(label, result) {
+  if (!result.status) return label + " error";
+  if (result.ok && !result.ids.length) return label + " " + result.status + " empty";
+  return label + " " + result.status;
+}
+
 /* APIの経路で「いま配信中か」を出します。
    report を渡すと、途中で見たものをそこに書き足します（?debug=1 用） */
-async function checkViaApi(apiKey, useCache, report) {
-  const feed = await fetchRecentVideoIds(useCache);
-  if (report) {
-    report.route = "api";
-    report.feedUrl = FEED_URL;
-    report.feedStatus = feed.status;
-    report.videoIds = feed.ids;
-  }
-  if (!feed.ok) return { unknown: true, reason: "feed " + feed.status };
-  if (!feed.ids.length) return { unknown: true, reason: "feed-empty" };
+async function checkViaApi(apiKey, useCache, report, skipFeed) {
+  if (report) report.route = "api";
+
+  const recent = await collectRecentVideoIds(apiKey, useCache, report, skipFeed);
+  if (!recent.ok) return { unknown: true, reason: recent.reason };
 
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
   url.searchParams.set("part", "snippet,liveStreamingDetails");
-  url.searchParams.set("id", feed.ids.join(","));
+  url.searchParams.set("id", recent.ids.join(","));
   url.searchParams.set("fields",
     "items(id,snippet(title,liveBroadcastContent),liveStreamingDetails(actualStartTime,actualEndTime,scheduledStartTime))");
   url.searchParams.set("key", apiKey);
 
   const init = { headers: { "accept": "application/json" } };
-  if (useCache) init.cf = { cacheTtl: CACHE_SECONDS, cacheEverything: true };
+  const cf = upstreamCf(useCache);
+  if (cf) init.cf = cf;
 
   const res = await fetch(url.toString(), init);
   if (report) report.apiStatus = res.status;
@@ -534,7 +647,7 @@ export async function onRequestGet(context) {
     const report = debug ? { now: new Date().toISOString() } : null;
     let apiPayload;
     try {
-      apiPayload = await checkViaApi(apiKey, !debug, report);
+      apiPayload = await checkViaApi(apiKey, !debug, report, debug && params.get("skipfeed") === "1");
     } catch (err) {
       apiPayload = { unknown: true, reason: "error" };
       if (report) report.error = String((err && err.message) || err);
@@ -581,7 +694,8 @@ export async function onRequestGet(context) {
   };
   /* debug のときは、いまYouTubeが返してくるものをそのまま見たいので、
      Cloudflare側のキャッシュを通しません */
-  if (!debug) init.cf = { cacheTtl: CACHE_SECONDS, cacheEverything: true };
+  const cf = upstreamCf(!debug);
+  if (cf) init.cf = cf;
 
   let payload;
   try {
