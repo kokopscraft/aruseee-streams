@@ -667,14 +667,37 @@ a{ color:inherit; }
   line-height:1.55;
   margin:0;
 }
+/* 日付・長さ・公開範囲のタグ。カードの一番下にそろえます。
+   入りきらないときはタグ単位で次の行に回ります */
 .card__meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
   margin-top:auto;
-  font-family:var(--mono);
-  font-size:.7rem;
-  letter-spacing:.04em;
-  color:var(--ink-soft);
 }
-.card__meta-bit{ white-space:nowrap; }
+.card__tag{
+  display:inline-flex;
+  align-items:center;
+  padding:2px 7px;
+  font-family:var(--mono);
+  font-size:.66rem;
+  line-height:1.6;
+  color:var(--sky-deep);
+  background:var(--sky-soft);
+  border:1px solid transparent;
+  border-radius:999px;
+  white-space:nowrap;
+}
+/* 公開範囲は日付や長さとは性質が違うので、塗らずに枠線だけにします */
+.card__tag--availability{
+  background:transparent;
+  border-color:var(--sky-mid);
+}
+/* メモは長いこともあるので、タグの中で折り返せるようにします */
+.card__tag--note{
+  white-space:normal;
+  border-radius:8px;
+}
 
 /* 概要欄。ふだんは最初の3行だけ出し、マウスを載せると全文を上に重ねて出します。
    全文のほう（__full）は見た目のための複製で、読み上げは __short の全文で済ませます。
@@ -1134,8 +1157,8 @@ a{ color:inherit; }
     img.referrerPolicy = "no-referrer";
 
     var step = 0;
-    /* error ハンドラは src を入れる前に登録する（取りこぼし防止） */
-    img.addEventListener("error", function () {
+    var firstYouTube = item.thumb ? 1 : 0;   /* sources のうち YouTube のサムネイルが始まる位置 */
+    var tryNext = function () {
       step++;
       if (step < sources.length) {
         img.src = sources[step];
@@ -1152,6 +1175,16 @@ a{ color:inherit; }
       ph.appendChild(s);
       ph.appendChild(c);
       thumb.appendChild(ph);
+    };
+    /* ハンドラは src を入れる前に登録する（取りこぼし防止） */
+    img.addEventListener("error", tryNext);
+    /* YouTube はその画質のサムネイルが無いとき、404 と一緒に 120×90 の灰色の
+       代わり画像（「…」の絵）を返します。ブラウザはこれを読み込めた画像として
+       扱い error が起きないので、幅で見分けて次の画質を試します。
+       ここで試す画質はどれも幅320以上なので、120以下なら代わり画像です。
+       item.thumb の自前の画像は小さくても正しい画像なので見ません */
+    img.addEventListener("load", function () {
+      if (step >= firstYouTube && img.naturalWidth <= 120) tryNext();
     });
     img.src = sources[0];
 
@@ -1182,26 +1215,24 @@ a{ color:inherit; }
       watchClamp(descShort);
     }
 
-    /* 日付・長さ・メモ・公開範囲を「　/　」で区切って並べます。
-       「限定｜公開」のように項目の途中で折り返さないよう、項目ごとに span で
-       包んで折り返しを止め、区切りの「/」の手前で折り返すようにします。
-       メモだけは長いこともあるので、途中で折り返せるままにします */
+    /* 日付・長さ・メモ・公開範囲を、ひとつずつタグにして並べます。
+       タグの間の空白は、読み上げで項目がつながらないようにするためのものです
+       （flex の中なので見た目には出ません） */
     var meta = document.createElement("p");
     meta.className = "card__meta";
-    var addMeta = function (text, canWrap) {
+    var addTag = function (text, kind) {
       if (!text) return;
-      var first = !meta.firstChild;
-      if (!first) meta.appendChild(document.createTextNode("　"));
-      var bit = document.createElement("span");
-      if (!canWrap) bit.className = "card__meta-bit";
-      bit.textContent = (first ? "" : "/　") + text;
-      meta.appendChild(bit);
+      if (meta.firstChild) meta.appendChild(document.createTextNode(" "));
+      var tag = document.createElement("span");
+      tag.className = "card__tag card__tag--" + kind;
+      tag.textContent = text;
+      meta.appendChild(tag);
     };
-    addMeta(fmtDate(item.date));
-    addMeta(fmtDuration(item.duration));
-    addMeta(item.note, true);
-    addMeta(availabilityLabel(item.availability));
-    body.appendChild(meta);
+    addTag(fmtDate(item.date), "date");
+    addTag(fmtDuration(item.duration), "duration");
+    addTag(item.note, "note");
+    addTag(availabilityLabel(item.availability), "availability");
+    if (meta.firstChild) body.appendChild(meta);
 
     a.appendChild(body);
     li.appendChild(a);
