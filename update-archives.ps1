@@ -1,8 +1,8 @@
 <#
     update-archives.ps1
 
-    urls.txt に並べたURLから yt-dlp でタイトルと配信日を取得し、
-    index.html の /* ARCHIVES:BEGIN */ 〜 /* ARCHIVES:END */ の間を書き換えます。
+    urls.txt に並べたURLから yt-dlp でタイトル・配信日・長さ・公開範囲・概要欄を
+    取得し、index.html の /* ARCHIVES:BEGIN */ 〜 /* ARCHIVES:END */ の間を書き換えます。
 
     使い方:
         .\update-archives.ps1            新しく足したURLだけ取得します
@@ -13,10 +13,11 @@
 
     ・限定公開の配信でも、URLさえ分かれば取得できます（APIキー不要）
     ・書き換え前に public\index.html.bak を作ります（.gitignore 済み）
-    ・タイトルと日付がそろって index.html に載っている動画は、yt-dlp に
-      聞かずにそのまま使います。何十件もまとめて聞くと、YouTubeの
-      ボット確認で止められやすくなるためです
-    ・取得に失敗しても、index.html に載っていたタイトルと日付は消しません
+    ・タイトル・日付・長さ・公開範囲がそろって index.html に載っている動画は、
+      yt-dlp に聞かずにそのまま使います。何十件もまとめて聞くと、YouTubeの
+      ボット確認で止められやすくなるためです。公開範囲を変えたときなど、
+      載っている値を取り直したいときは -Refresh を付けます
+    ・取得に失敗しても、index.html に載っていた値は消しません
     ・yt-dlp で取れなかった新しい動画は、埋め込み用の oEmbed からタイトルだけ
       取ります。日付は空欄のまま進み、次に yt-dlp が動いたときに埋まります
     ・どこからも取れなかったものだけ、タイトルの代わりに動画IDを入れます
@@ -93,11 +94,29 @@ function Get-FailureReason($errorLines) {
 #  fulltitle を使うのは、配信中の動画の %(title)s には yt-dlp が現在時刻を
 #  足すためです（"タイトル 2026-09-03 22:54" になってしまいます）。
 #
+#  配信日は release_timestamp（配信が始まった時刻）を日本時間の日付にして使います。
+#  upload_date は使いません。理由は2つあります。
+#   ・upload_date は配信枠（待機所）を作った日です。前の配信の終わりに次の枠を
+#     作っておくと、配信した日より何週間も前の日付になります
+#     （例: 10/10 に枠を作って 11/1 に配信 → upload_date は 10/10）
+#   ・yt-dlp の日付はUTCなので、日本時間の 0時〜9時に始まった配信は前日になります
+#     （例: 9/25 2:20 開始 → release_date は 9/24）
+#  release_timestamp が無いもの（ふつうにアップロードした動画など）は timestamp
+#  （公開した時刻）を、それも無ければ upload_date をそのまま使います。
+#
+#  あわせて、配信の長さ（duration、秒）、公開範囲（availability: public /
+#  unlisted / private など）、概要欄（description）も取ります。
+#
+#  項目は1行のJSONで受け取ります（%(.{…})j）。概要欄には改行やタブが入るので、
+#  区切り文字で並べる方法では読めないためです。日本語は あ のような形で
+#  書き出されるので、文字化けの心配もありません。
+#
 #  失敗したときの理由（yt-dlp の ERROR: の行）も拾って返します。捨てていると
 #  「取得できませんでした」としか出せず、ボット確認で止められているのか、
 #  動画が消されたのかが分かりません。
 function Get-VideoMeta([string]$url) {
-    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("aruseee-arch-{0}.txt" -f [System.Guid]::NewGuid().ToString('N'))
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("aruseee-arch-{0}.json" -f [System.Guid]::NewGuid().ToString('N'))
+    $fields = 'fulltitle,release_timestamp,timestamp,upload_date,duration,availability,description'
     $errors = @()
     try {
         # stderr を受け取るあいだだけ Stop を緩めます。古い PowerShell では、
@@ -106,7 +125,7 @@ function Get-VideoMeta([string]$url) {
         $ErrorActionPreference = 'Continue'
         try {
             $errors = @(& $YtDlp --skip-download --no-warnings --no-playlist `
-                            --print-to-file "%(fulltitle)s`t%(upload_date)s" $tmp $url 2>&1 |
+                            --print-to-file "%(.{$fields})j" $tmp $url 2>&1 |
                         ForEach-Object { "$_" } |
                         Where-Object { $_ -like 'ERROR:*' })
         } catch {
@@ -115,11 +134,15 @@ function Get-VideoMeta([string]$url) {
             $ErrorActionPreference = $saved
         }
 
+        # Description は「取れなかった」($null) と「概要欄が空だった」('') を分けて持ちます
         $result = [pscustomobject]@{
-            Title   = ''
-            Date    = $null
-            Reason  = (Get-FailureReason $errors)
-            Blocked = [bool](@($errors) -match 'not a bot')
+            Title        = ''
+            Date         = $null
+            Duration     = $null
+            Availability = $null
+            Description  = $null
+            Reason       = (Get-FailureReason $errors)
+            Blocked      = [bool](@($errors) -match 'not a bot')
         }
 
         if (-not (Test-Path -LiteralPath $tmp)) { return $result }
@@ -129,17 +152,37 @@ function Get-VideoMeta([string]$url) {
                 Select-Object -First 1
         if (-not $line) { return $result }
 
-        $parts = $line.Split("`t")
-        $title = $parts[0].Trim()
-        if ($title -eq 'NA') { $title = '' }
-        $result.Title = $title
+        try { $info = $line | ConvertFrom-Json } catch { return $result }
 
-        if ($parts.Length -gt 1) {
-            $raw = $parts[1].Trim()
-            if ($raw -match '^\d{8}$') {
-                $result.Date = '{0}-{1}-{2}' -f $raw.Substring(0,4), $raw.Substring(4,2), $raw.Substring(6,2)
+        if ($info.fulltitle) { $result.Title = ([string]$info.fulltitle).Trim() }
+
+        # 配信開始 → 公開 の順に、取れた時刻を日本時間の日付にします。
+        # 日本には夏時間が無いので、UTCに9時間足すだけで済みます
+        # （タイムゾーン名は Windows と Mac/Linux で違うので使いません）。
+        foreach ($ts in @($info.release_timestamp, $info.timestamp)) {
+            if ("$ts" -match '^(\d+)(\.\d+)?$') {
+                $started = [DateTimeOffset]::FromUnixTimeSeconds([long]$Matches[1])
+                $result.Date = $started.ToOffset([TimeSpan]::FromHours(9)).ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture)
+                break
             }
         }
+
+        # どちらの時刻も取れなかったときだけ、upload_date（UTCの日付）を使います
+        if (-not $result.Date -and "$($info.upload_date)" -match '^(\d{4})(\d{2})(\d{2})$') {
+            $result.Date = '{0}-{1}-{2}' -f $Matches[1], $Matches[2], $Matches[3]
+        }
+
+        # 長さは秒の整数で持ちます（「1時間20分」のような形にするのはページ側です）
+        if ("$($info.duration)" -match '^(\d+)(\.\d+)?$') {
+            $result.Duration = [long]$Matches[1]
+        }
+
+        if ("$($info.availability)" -match '^[a-z_]+$') {
+            $result.Availability = [string]$info.availability
+        }
+
+        # 改行は \n にそろえ、末尾の空行は落とします
+        $result.Description = ([string]$info.description -replace "`r`n?", "`n").TrimEnd()
 
         return $result
     }
@@ -163,6 +206,13 @@ function Get-OEmbedTitle([string]$url) {
     }
 }
 
+# ---- 先の値が入っていればそれを、無ければ後の値を返す ---------------------
+#  0 は「値あり」として扱います（長さが0秒の動画を「取れなかった」にしないため）
+function Select-Value($first, $then) {
+    if ($null -ne $first -and '' -ne $first) { return $first }
+    return $then
+}
+
 # ---- urls.txt を読む ------------------------------------------------------
 $lines = [System.IO.File]::ReadAllLines($Urls, [System.Text.Encoding]::UTF8) |
          ForEach-Object { $_.Trim() } |
@@ -170,9 +220,9 @@ $lines = [System.IO.File]::ReadAllLines($Urls, [System.Text.Encoding]::UTF8) |
 
 if ($lines.Count -eq 0) { throw "urls.txt にURLが1件もありません。" }
 
-# ---- index.html にすでに載っているタイトルと日付を読む --------------------
+# ---- index.html にすでに載っている値を読む --------------------------------
 #  聞き直さなくて済むものは聞き直さない、取れなかったときに消さない、のために
-#  使います。タイトルは JavaScript の文字列リテラルの形のまま持っておき、
+#  使います。タイトルと概要欄は JavaScript の文字列リテラルの形のまま持っておき、
 #  そのまま書き戻します（戻してから書き直すと、エスケープの違いで差分が出るため）。
 #
 #  変数名を $html にしないこと。PowerShell は大文字小文字を区別しないため、
@@ -188,31 +238,40 @@ if ($blockMatch.Success) {
     # { ... } をひとつずつ取り出します。タイトルの中の { } で切れないよう、
     # 文字列リテラルはまとめて読み飛ばします
     $objectRe = '\{(?:[^{}"]|' + $jsString + ')*\}'
+    # { ... } の中の「キー: 値」を前から順に読みます。値の文字列リテラルは
+    # まるごと読むので、概要欄の中に "date: ..." のような文があっても
+    # キーと取り違えません
+    $propRe = '([A-Za-z_]\w*)\s*:\s*(' + $jsString + '|[^,}\s]+)'
 
     foreach ($obj in [regex]::Matches($blockMatch.Groups[1].Value, $objectRe)) {
-        $urlMatch = [regex]::Match($obj.Value, '\burl:\s*(' + $jsString + ')')
-        if (-not $urlMatch.Success) { continue }
-        $knownId = Get-VideoId $urlMatch.Groups[1].Value
+        $props = @{}
+        foreach ($pm in [regex]::Matches($obj.Value, $propRe)) {
+            $key = $pm.Groups[1].Value
+            if (-not $props.ContainsKey($key)) { $props[$key] = $pm.Groups[2].Value }
+        }
+
+        if (-not $props.ContainsKey('url')) { continue }
+        $knownId = Get-VideoId (FromJsString $props['url'])
         if (-not $knownId -or $known.ContainsKey($knownId)) { continue }
 
-        $titleMatch = [regex]::Match($obj.Value, '\btitle:\s*(' + $jsString + ')')
-        $dateMatch  = [regex]::Match($obj.Value, '\bdate:\s*"(\d{4}-\d{2}-\d{2})"')
-
-        $titleJs = if ($titleMatch.Success) { $titleMatch.Groups[1].Value } else { $null }
+        $titleJs = if ($props['title'] -match "^$jsString$") { $props['title'] } else { $null }
         # 空のタイトルと、前回どこからも取れずに動画IDを入れておいたものは
         # 「タイトル無し」として扱い、取り直しの対象にします
         if ($titleJs -eq '""' -or $titleJs -ceq ('"' + $knownId + '"')) { $titleJs = $null }
 
         $known[$knownId] = [pscustomobject]@{
-            TitleJs = $titleJs
-            Date    = $(if ($dateMatch.Success) { $dateMatch.Groups[1].Value } else { $null })
+            TitleJs       = $titleJs
+            Date          = $(if ($props['date'] -match '^"(\d{4}-\d{2}-\d{2})"$') { $Matches[1] } else { $null })
+            Duration      = $(if ($props['duration'] -match '^\d+$') { [long]$props['duration'] } else { $null })
+            Availability  = $(if ($props['availability'] -match '^"([a-z_]+)"$') { $Matches[1] } else { $null })
+            DescriptionJs = $(if ($props['description'] -match "^$jsString$" -and $props['description'] -ne '""') { $props['description'] } else { $null })
         }
     }
 }
 
 Write-Host "$($lines.Count) 件のURLを処理します..." -ForegroundColor Cyan
 
-# ---- タイトルと日付をそろえる ----------------------------------------------
+# ---- 載せる値をそろえる ----------------------------------------------------
 $entries = New-Object System.Collections.Generic.List[object]
 $asked   = 0
 $reused  = 0
@@ -233,10 +292,15 @@ foreach ($line in $lines) {
     $prev = if ($known.ContainsKey($id)) { $known[$id] } else { $null }
     Write-Host ("[{0}/{1}] {2}" -f $i, $lines.Count, $id) -NoNewline
 
-    # タイトルも日付もそろっているものは聞き直しません（-Refresh のときだけ聞き直します）
-    if ($prev -and $prev.TitleJs -and $prev.Date -and -not $Refresh) {
+    # タイトル・日付・長さ・公開範囲がそろっているものは聞き直しません
+    # （-Refresh のときだけ聞き直します）。概要欄は空の動画もあるので条件に入れません。
+    # 概要欄は他の項目と一緒に取るので、yt-dlp が通っていれば必ず入っています
+    if ($prev -and $prev.TitleJs -and $prev.Date -and $null -ne $prev.Duration -and $prev.Availability -and -not $Refresh) {
         Write-Host "  （登録済み）$(FromJsString $prev.TitleJs)" -ForegroundColor DarkGray
-        $entries.Add([pscustomobject]@{ TitleJs = $prev.TitleJs; Date = $prev.Date; Url = $url })
+        $entries.Add([pscustomobject]@{
+            TitleJs = $prev.TitleJs; Date = $prev.Date; Duration = $prev.Duration
+            Availability = $prev.Availability; DescriptionJs = $prev.DescriptionJs; Url = $url
+        })
         $reused++
         continue
     }
@@ -245,20 +309,29 @@ foreach ($line in $lines) {
     $asked++
     if ($meta.Blocked) { $blocked = $true }
 
-    $newTitleJs  = if ($meta.Title) { ToJsString $meta.Title } else { $null }
-    $prevTitleJs = if ($prev) { $prev.TitleJs } else { $null }
-    $prevDate    = if ($prev) { $prev.Date } else { $null }
+    $newTitleJs = if ($meta.Title) { ToJsString $meta.Title } else { $null }
+    $newDescJs  = if ($meta.Description) { ToJsString $meta.Description } else { $null }
 
     # -Refresh のときは取り直した値を優先し、ふだんは載っている値を優先します
     # （ふだん聞きにいくのは、足りない項目を埋めるときだけなので）。
     # どちらの場合も、取れなかった項目は載っている値のまま残します。
-    if ($Refresh) {
-        $titleJs = if ($newTitleJs) { $newTitleJs } else { $prevTitleJs }
-        $date    = if ($meta.Date)  { $meta.Date }  else { $prevDate }
-    } else {
-        $titleJs = if ($prevTitleJs) { $prevTitleJs } else { $newTitleJs }
-        $date    = if ($prevDate)    { $prevDate }    else { $meta.Date }
+    $newVals  = [pscustomobject]@{
+        TitleJs = $newTitleJs; Date = $meta.Date; Duration = $meta.Duration
+        Availability = $meta.Availability; DescriptionJs = $newDescJs
     }
+    $prevVals = if ($prev) { $prev } else { [pscustomobject]@{} }
+    $first = if ($Refresh) { $newVals }  else { $prevVals }
+    $then  = if ($Refresh) { $prevVals } else { $newVals }
+
+    $titleJs      = Select-Value $first.TitleJs       $then.TitleJs
+    $date         = Select-Value $first.Date          $then.Date
+    $duration     = Select-Value $first.Duration      $then.Duration
+    $availability = Select-Value $first.Availability  $then.Availability
+    $descJs       = Select-Value $first.DescriptionJs $then.DescriptionJs
+
+    # -Refresh で取り直せて、概要欄が空だったとき（YouTube側で消した場合など）は、
+    # 載っていた概要欄を残さずに空にそろえます
+    if ($Refresh -and $meta.Description -eq '') { $descJs = $null }
 
     $why  = if ($meta.Reason) { "（yt-dlp: $($meta.Reason)）" } else { '' }
     $from = ''
@@ -281,7 +354,10 @@ foreach ($line in $lines) {
     }
     if (-not $date) { $noDate++ }
 
-    $entries.Add([pscustomobject]@{ TitleJs = $titleJs; Date = $date; Url = $url })
+    $entries.Add([pscustomobject]@{
+        TitleJs = $titleJs; Date = $date; Duration = $duration
+        Availability = $availability; DescriptionJs = $descJs; Url = $url
+    })
 }
 
 if ($entries.Count -eq 0) { throw "1件も取得できなかったので中止します。index.html は変更していません。" }
@@ -289,7 +365,7 @@ if ($entries.Count -eq 0) { throw "1件も取得できなかったので中止�
 # ---- JavaScript の配列に組み立てる ---------------------------------------
 $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine('    /* ARCHIVES:BEGIN */')
-[void]$sb.AppendLine('    /* ここは update-archives.ps1 が自動生成します。タイトルと日付は次の実行でも引き継ぎますが、それ以外の書き足し（note など）は消えます */')
+[void]$sb.AppendLine('    /* ここは update-archives.ps1 が自動生成します。タイトル・日付・長さ・公開範囲・概要欄は次の実行でも引き継ぎますが、それ以外の書き足し（note など）は消えます */')
 
 for ($n = 0; $n -lt $entries.Count; $n++) {
     $e     = $entries[$n]
@@ -298,6 +374,15 @@ for ($n = 0; $n -lt $entries.Count; $n++) {
     [void]$sb.AppendLine("    { title: $($e.TitleJs),")
     if ($e.Date) {
         [void]$sb.AppendLine("      date: $(ToJsString $e.Date),")
+    }
+    if ($null -ne $e.Duration) {
+        [void]$sb.AppendLine("      duration: $($e.Duration),")
+    }
+    if ($e.Availability) {
+        [void]$sb.AppendLine("      availability: $(ToJsString $e.Availability),")
+    }
+    if ($e.DescriptionJs) {
+        [void]$sb.AppendLine("      description: $($e.DescriptionJs),")
     }
     [void]$sb.AppendLine("      url: $(ToJsString $e.Url) }$comma")
     if ($n -lt $entries.Count - 1) { [void]$sb.AppendLine() }

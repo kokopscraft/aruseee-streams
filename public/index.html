@@ -84,12 +84,17 @@ const SITE = {
        url だけ必須。YouTubeのURLをそのまま貼れば動きます
        （watch?v= / youtu.be / live/ のどれでも可）。
 
-       title … 配信タイトル。省略すると動画IDが表示されます
-       date  … 任意。"2026-08-15" のように書くとカードに日付が出ます
-       note  … 任意。ひとことメモ
-       thumb … 任意。YouTubeからサムネイルを読めない場合の逃げ道。
-               "img/0GO5HLIWvnQ.jpg" のように自前の画像パスを書くと
-               そちらを優先して表示します
+       title        … 配信タイトル。省略すると動画IDが表示されます
+       date         … 任意。"2026-08-15" のように書くとカードに日付が出ます
+       duration     … 任意。配信の長さを秒で書きます（4800 → 「1時間20分」）
+       availability … 任意。公開範囲。"public"（公開）/ "unlisted"（限定公開）/
+                      "private"（非公開）など。省略すると「限定公開」と出ます
+       description  … 任意。概要欄。カードには最初の3行だけ出て、
+                      マウスを載せると全文が出ます
+       note         … 任意。ひとことメモ
+       thumb        … 任意。YouTubeからサムネイルを読めない場合の逃げ道。
+                      "img/0GO5HLIWvnQ.jpg" のように自前の画像パスを書くと
+                      そちらを優先して表示します
 
      ▼ 自動生成する場合
        同梱の update-archives.ps1 を使うと、urls.txt にURLを1行足すだけで
@@ -98,109 +103,186 @@ const SITE = {
      -------------------------------------------------------------------- */
   archives: [
     /* ARCHIVES:BEGIN */
-    /* ここは update-archives.ps1 が自動生成します。タイトルと日付は次の実行でも引き継ぎますが、それ以外の書き足し（note など）は消えます */
+    /* ここは update-archives.ps1 が自動生成します。タイトル・日付・長さ・公開範囲・概要欄は次の実行でも引き継ぎますが、それ以外の書き足し（note など）は消えます */
     { title: "３０分くらい　告知と告知と爆竹",
-      date: "2026-11-04",
+      date: "2026-11-05",
+      duration: 2939,
+      availability: "unlisted",
+      description: "【12月21日〆】\nボカロP６人とのアパレルコラボ受注中！\n【全キャラグッズ】\nhttps://kangolreward.jp/SHOP/202372/247016/list.html\n【アルセチカ × イチ】4nim0sity|99.999999999%| \nhttps://kangolreward.jp/SHOP/202372/247019/list.html\n【アルセチカ × Chinozo】ブランディングができない\nhttps://kangolreward.jp/SHOP/202372/247026/list.html\n【アルセチカ × saikawa】もう寝なさい\nhttps://kangolreward.jp/SHOP/202372/247025/list.html\n【アルセチカ × 夏山よつぎ】ネクラヒリア\nhttps://kangolreward.jp/SHOP/202372/247023/list.html\n【アルセチカ × manika】レクデンシー\nhttps://kangolreward.jp/SHOP/202372/247024/list.html\n【アルセチカ × Tonbi】トロイア\nhttps://kangolreward.jp/SHOP/202372/247022/list.html\n\n通常配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=s9N9fn_WR1E" },
 
     { title: "2時間15枚イラストメイキング",
       date: "2026-11-04",
+      duration: 8145,
+      availability: "public",
+      description: "イラスト期間限定無料配布中！\n⇒ https://aruseee.booth.pm/items/9098622\n\nアルセチカ　https://x.com/aruseee",
       url: "https://www.youtube.com/watch?v=7sg25nIzWfo" },
 
     { title: "神々しく後光がさしてやまない先輩こと「「「鈴花いのり」」」",
-      date: "2026-10-10",
+      date: "2026-11-01",
+      duration: 5190,
+      availability: "unlisted",
+      description: "アルセチカを応援するということは、実質（アルセチカが応援している）鈴花いのりを応援するということ\n\n💝💝💝@SuzuhanaInori 💝💝💝\nhttps://x.com/InoriSuzuhana\n\n\n配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=Tb3h0_j6HHc" },
 
     { title: "だいだいだいだいだいげんき",
-      date: "2026-09-27",
+      date: "2026-10-10",
+      duration: 2118,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=3LMGZLJslbE" },
 
     { title: "病み上がりでできることないけど怖くなったら終了",
-      date: "2026-09-23",
+      date: "2026-09-25",
+      duration: 2775,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=tXVzwqoZFE4" },
 
     { title: "みんはややっておわり",
       date: "2026-09-23",
+      duration: 2061,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=oCLXed1aqpU" },
 
     { title: "早起きな君のラッキーアイテム",
-      date: "2026-09-16",
+      date: "2026-09-20",
+      duration: 7819,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=FcdLOAwmhoU" },
 
     { title: "Chinozo ユノギシロ 大江カルシー アルセチカ　魚バンバンチーム",
       date: "2026-09-10",
+      duration: 9633,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion",
       url: "https://www.youtube.com/watch?v=e0lyo5WQNRI" },
 
     { title: "塗り終わるまで　だらだら雑談フルコース",
-      date: "2026-09-03",
+      date: "2026-09-09",
+      duration: 8133,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion\n\n\n\nまあまあやる\n\n9/10につづきやる\n⇒Chinozo ユノギシロ 大江カルシー アルセチカ　魚バンバンチーム",
       url: "https://www.youtube.com/watch?v=Rung0youUhg" },
 
     { title: "雑談　九木隹　言炎炎　だらだら　環境にやさしい　家族で使える　インドア　ホログラム　オーロラ加工　重厚感　長時間使える　足元　沼　奈落",
-      date: "2026-09-09",
+      date: "2026-09-10",
+      duration: 7434,
+      availability: "unlisted",
+      description: "配信で読み上げる用マシュマロ\n⇒ https://marshmallow-qa.com/aruseee?t=a78NKk&utm_medium=url_text&utm_source=promotion\n\n\n9/10につづきやる\n⇒Chinozo ユノギシロ 大江カルシー アルセチカ　魚バンバンチーム",
       url: "https://www.youtube.com/watch?v=hiU3ZQ4jDwo" },
 
     { title: "Chinozo ユノギシロ 大江カルシー アルセチカ　魚バンバンチーム",
       date: "2026-09-03",
+      duration: 12337,
+      availability: "unlisted",
+      description: "まあまあやる",
       url: "https://www.youtube.com/watch?v=bSlgzPNIJmg" },
 
     { title: "友達によばれるまで",
-      date: "2026-08-28",
+      date: "2026-09-02",
+      duration: 1429,
+      availability: "unlisted",
+      description: "多分九時まで",
       url: "https://www.youtube.com/watch?v=T_3Bn4k0u5A" },
 
     { title: "ぼかぴと全員釣る",
-      date: "2026-08-27",
+      date: "2026-08-28",
+      duration: 5212,
+      availability: "unlisted",
+      description: "with chinozo",
       url: "https://www.youtube.com/watch?v=qKUHVsWfo6o" },
 
     { title: "やっぱりチカムは夜曜日",
-      date: "2026-08-25",
+      date: "2026-08-27",
+      duration: 9806,
+      availability: "unlisted",
+      description: "昼って",
       url: "https://www.youtube.com/watch?v=l0Z3cCSntcQ" },
 
     { title: "いかそうめんて二面性あるのすごい",
       date: "2026-08-19",
+      duration: 7765,
+      availability: "unlisted",
+      description: "月まで行くぞ、俺の手をとれ",
       url: "https://www.youtube.com/watch?v=UZdteO4Uc18" },
 
     { title: "ドライブライブ",
-      date: "2026-08-07",
+      date: "2026-08-15",
+      duration: 8791,
+      availability: "unlisted",
+      description: "月まで乗ってけよ",
       url: "https://www.youtube.com/watch?v=Y4VYo0WzN5Y" },
 
     { title: "てごまごま",
-      date: "2026-08-06",
+      date: "2026-08-07",
+      duration: 4226,
+      availability: "unlisted",
+      description: "おつう",
       url: "https://www.youtube.com/watch?v=37N7shkJTcU" },
 
     { title: "12時間ぶっつづけ配信 の後日譚【2026年夏休み企画】",
-      date: "2026-08-06",
+      date: "2026-08-07",
+      duration: 3805,
+      availability: "unlisted",
+      description: "OK　やっていこう",
       url: "https://www.youtube.com/watch?v=hS-aGz2Rp6Q" },
 
     { title: "12時間ぶっつづけ配信 【2026年夏休み企画】",
-      date: "2026-08-05",
+      date: "2026-08-06",
+      duration: 42899,
+      availability: "unlisted",
+      description: "OK　やっていこう\n▸続き\nhttps://youtube.com/live/hS-aGz2Rp6Q?feature=share",
       url: "https://www.youtube.com/watch?v=tlAMSvDzFcM" },
 
     { title: "配信準備部",
       date: "2026-08-05",
+      duration: 2027,
+      availability: "unlisted",
       url: "https://www.youtube.com/watch?v=xl0WsgLIYa8" },
 
     { title: "【⚡201】つわものTonbiとじゃくしょうチカムと遊んでくれるみんなたち",
-      date: "2026-06-13",
+      date: "2026-06-14",
+      duration: 8862,
+      availability: "unlisted",
+      description: "わーい\n@Tonbism",
       url: "https://www.youtube.com/watch?v=GALnv_izgCY" },
 
     { title: "【⚡200】どよあさの程ママ",
       date: "2026-06-13",
+      duration: 7803,
+      availability: "unlisted",
+      description: "なんもさ",
       url: "https://www.youtube.com/watch?v=m0pgoXd4LdI" },
 
     { title: "【⚡199】チカムだより",
       date: "2026-06-09",
+      duration: 2732,
+      availability: "unlisted",
+      description: "ほほう…",
       url: "https://www.youtube.com/watch?v=4nkbK3zAC6k" },
 
     { title: "【⚡198】あたらしい画面を夜のみんなにも見せたい",
       date: "2026-06-01",
+      duration: 4702,
+      availability: "unlisted",
+      description: "クククーラー",
       url: "https://www.youtube.com/watch?v=OjAnVy6c2iY" },
 
     { title: "【⚡196】日曜朝みたい風味。さわやかになって新登場！",
-      date: "2026-05-22",
+      date: "2026-05-31",
+      duration: 7818,
+      availability: "unlisted",
+      description: "ご飯一合たべた",
       url: "https://www.youtube.com/watch?v=m1X89oB4XpY" },
 
     { title: "【⚡194】有言実行部員",
-      date: "2026-05-14",
+      date: "2026-05-17",
+      duration: 7146,
+      availability: "unlisted",
+      description: "直近の告知でござい！\n■アパレルコラボ！（お洋服）\nhttps://kangolreward.jp/SHOP/202372/245357/list.html\n四種類アイテムがある！いままで出したことない、スウェット（ｽﾞﾎﾞｰﾝ）もある！要チェック！お年玉勢にはちょいつらい値段かも　またお洋服作れるようにがんばる\n\n■水白銀河をよろしくおねがいします\n手から産まれたvtuberちゃんが5/5にデビュー！可愛いですよろしくおねがいします\n x.com/mizushiro_ginga\n■刻吏鳴をよろしくおねがいします \nこちらも5/5デビューです　可愛いです\nhttps://x.com/tokiriNARU\n\n■4/11 momeeent を開催したよ!!みてみて\n最高楽曲20強が集合！お気に入りの時間帯を探してね♪\nhttps://www.youtube.com/playlist?list=PL3P1AcpY08hW5HDnd9E4_5bWZfduGi9UF\nhttps://www.nicovideo.jp/mylist/79334649",
       url: "https://www.youtube.com/watch?v=0GO5HLIWvnQ" }
     /* ARCHIVES:END */
   ]
@@ -523,7 +605,8 @@ a{ color:inherit; }
   background:var(--panel);
   border:1px solid #dfeaee;
   border-radius:var(--radius);
-  overflow:hidden;
+  /* overflow は切りません。概要欄の全文をカードの下まで重ねて出すためです。
+     角の丸みはサムネイルのほうで付けています */
   transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 .card:hover{
@@ -531,12 +614,19 @@ a{ color:inherit; }
   border-color:var(--sky-mid);
   box-shadow:0 16px 28px -22px rgba(32,49,55,.6);
 }
+/* マウスを載せているカードを、となりや下の段のカードより手前に出します
+   （概要欄の全文が下の段に重なったとき、下に潜らないように） */
+.grid > li{ position:relative; }
+.grid > li:hover,
+.grid > li:focus-within{ z-index:2; }
 
 .card__thumb{
   position:relative;
   aspect-ratio:16/9;
   background:var(--sky-soft);
   overflow:hidden;
+  /* カードの枠線(1px)の内側に収まる丸み */
+  border-radius:calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
 }
 .card__thumb img{
   width:100%; height:100%;
@@ -584,6 +674,52 @@ a{ color:inherit; }
   letter-spacing:.04em;
   color:var(--ink-soft);
 }
+.card__meta-bit{ white-space:nowrap; }
+
+/* 概要欄。ふだんは最初の3行だけ出し、マウスを載せると全文を上に重ねて出します。
+   全文のほう（__full）は見た目のための複製で、読み上げは __short の全文で済ませます。
+   3行に収まっている概要欄は is-clamped が付かず、全文も出しません */
+.card__desc{
+  position:relative;
+  font-size:.76rem;
+  line-height:1.7;
+  color:var(--ink-soft);
+}
+.card__desc-short,
+.card__desc-full{
+  margin:0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;   /* 長いURLで横にはみ出さないように */
+}
+.card__desc-short{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  line-clamp:3;
+  overflow:hidden;
+}
+.card__desc-full{
+  position:absolute;
+  /* 内側の余白ぶん外に広げて、文字の位置を __short とぴったり重ねます */
+  top:-8px; left:-10px; right:-10px;
+  padding:8px 10px;
+  max-height:min(60vh, 28em);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  color:var(--ink);
+  background:var(--panel);
+  border:1px solid var(--sky-mid);
+  border-radius:10px;
+  box-shadow:0 18px 34px -18px rgba(32,49,55,.55);
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .14s ease, visibility .14s;
+}
+@media (hover:hover){
+  .card__desc.is-clamped:hover .card__desc-full{ opacity:1; visibility:visible; }
+}
+/* キーボードでカードを選んだときも全文を出します */
+.card:focus-visible .card__desc.is-clamped .card__desc-full{ opacity:1; visibility:visible; }
 
 .empty{
   padding:36px 0;
@@ -748,6 +884,32 @@ a{ color:inherit; }
     var d = new Date(s);
     if (isNaN(d)) return s;
     return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  }
+
+  /* 秒を「1時間20分」「30分」「1分未満」の形にします（秒は切り捨て） */
+  function fmtDuration(sec) {
+    if (typeof sec !== "number" || !(sec >= 0)) return "";
+    var min = Math.floor(sec / 60);
+    if (min < 1) return "1分未満";
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    if (!h) return m + "分";
+    return m ? h + "時間" + m + "分" : h + "時間";
+  }
+
+  /* YouTube の公開範囲（yt-dlp の availability）の表示名。
+     書いていないものは、これまでどおり「限定公開」として扱います */
+  var AVAILABILITY_LABELS = {
+    "public":          "公開",
+    "unlisted":        "限定公開",
+    "private":         "非公開",
+    "subscriber_only": "メンバー限定",
+    "premium_only":    "Premium限定",
+    "needs_auth":      "要ログイン"
+  };
+  function availabilityLabel(v) {
+    if (!v) return "限定公開";
+    return AVAILABILITY_LABELS.hasOwnProperty(v) ? AVAILABILITY_LABELS[v] : "";
   }
 
   var el = function (id) { return document.getElementById(id); };
@@ -918,6 +1080,27 @@ a{ color:inherit; }
   var count = el("archiveCount");
   var nodes = [];
 
+  /* 概要欄が3行に収まらず切れているかどうかを見て、切れているものにだけ
+     is-clamped を付けます（マウスを載せたときに全文を出すのはそれだけ）。
+     切れ方はカードの幅で変わるので、大きさが変わるたびに見直します。
+     検索で隠れていたカードも、出てきたときに大きさが変わるので見直されます */
+  var clampTargets = [];
+  function markClamp(descShort) {
+    descShort.parentNode.classList.toggle("is-clamped", descShort.scrollHeight > descShort.clientHeight + 1);
+  }
+  var clampObserver = window.ResizeObserver
+    ? new ResizeObserver(function (list) { list.forEach(function (en) { markClamp(en.target); }); })
+    : null;
+  function watchClamp(descShort) {
+    clampTargets.push(descShort);
+    if (clampObserver) clampObserver.observe(descShort);
+    else descShort.parentNode.classList.add("is-clamped");   /* 見張れない古いブラウザでは、常に全文を出せるように */
+  }
+  /* Webフォントが届くと文字幅が変わり、3行に収まるかどうかも変わります */
+  if (clampObserver && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { clampTargets.forEach(markClamp); });
+  }
+
   archives.forEach(function (item) {
     var id = videoIdOf(item.url);
 
@@ -983,13 +1166,41 @@ a{ color:inherit; }
     t.textContent = item.title || id;
     body.appendChild(t);
 
-    var metaBits = [];
-    if (item.date) metaBits.push(fmtDate(item.date));
-    if (item.note) metaBits.push(item.note);
-    metaBits.push("限定公開");
+    if (item.description) {
+      var desc = document.createElement("div");
+      desc.className = "card__desc";
+      var descShort = document.createElement("p");
+      descShort.className = "card__desc-short";
+      descShort.textContent = item.description;
+      var descFull = document.createElement("p");
+      descFull.className = "card__desc-full";
+      descFull.setAttribute("aria-hidden", "true");
+      descFull.textContent = item.description;
+      desc.appendChild(descShort);
+      desc.appendChild(descFull);
+      body.appendChild(desc);
+      watchClamp(descShort);
+    }
+
+    /* 日付・長さ・メモ・公開範囲を「　/　」で区切って並べます。
+       「限定｜公開」のように項目の途中で折り返さないよう、項目ごとに span で
+       包んで折り返しを止め、区切りの「/」の手前で折り返すようにします。
+       メモだけは長いこともあるので、途中で折り返せるままにします */
     var meta = document.createElement("p");
     meta.className = "card__meta";
-    meta.textContent = metaBits.join("　/　");
+    var addMeta = function (text, canWrap) {
+      if (!text) return;
+      var first = !meta.firstChild;
+      if (!first) meta.appendChild(document.createTextNode("　"));
+      var bit = document.createElement("span");
+      if (!canWrap) bit.className = "card__meta-bit";
+      bit.textContent = (first ? "" : "/　") + text;
+      meta.appendChild(bit);
+    };
+    addMeta(fmtDate(item.date));
+    addMeta(fmtDuration(item.duration));
+    addMeta(item.note, true);
+    addMeta(availabilityLabel(item.availability));
     body.appendChild(meta);
 
     a.appendChild(body);
